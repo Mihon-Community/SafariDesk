@@ -82,6 +82,9 @@ const db = {
     { id: 1, bookingId: 4, rating: 5, comment: "Great drive, saw the big five!", sentiment: "positive", topics: ["wildlife", "driver"], createdAt: stamp(-3) },
     { id: 2, bookingId: 5, rating: 4, comment: "Lovely trip, car was a bit warm.", sentiment: "positive", topics: ["vehicle"], createdAt: stamp(-1) },
   ] as FeedbackRow[],
+  users: [
+    { id: 1, email: "admin@safaridesk.app", name: "Operator Admin", role: "admin", status: "ACTIVE" },
+  ] as { id: number; email: string; name: string; role: string; status: string }[],
 };
 
 let nextBookingId = 1;
@@ -430,6 +433,52 @@ export const handlers = [
       token: "mock-jwt-token",
       user: { id: 1, email: body.email, role: "admin" },
     });
+  }),
+
+  /* auth extras for Phase 1 shells (Phase 7 implements them server-side) */
+  http.post("/api/auth/sign-up", async ({ request }) => {
+    await delay(LATENCY);
+    const body = (await request.json()) as { name?: string; email?: string; password?: string };
+    if (!body.name || !body.email || !body.password || body.password.length < 8) {
+      return json({ error: "Name, email and an 8+ character password are required" }, { status: 400 });
+    }
+    db.users.push({
+      id: db.users.length + 1,
+      email: body.email,
+      name: body.name,
+      role: "customer",
+      status: "ACTIVE",
+    });
+    return json({ ok: true, message: "Account created" }, { status: 201 });
+  }),
+
+  http.get("/api/auth/me", async () => {
+    await delay(LATENCY);
+    return json({ id: 1, email: "admin@safaridesk.app", role: "admin" });
+  }),
+
+  http.post("/api/auth/refresh", async () => {
+    await delay(LATENCY);
+    return json({ token: "mock-jwt-refreshed" });
+  }),
+
+  http.post("/api/auth/sign-out", async () => {
+    await delay(LATENCY);
+    return json({ ok: true });
+  }),
+
+  http.post("/api/auth/forgot-password", async () => {
+    await delay(LATENCY * 2);
+    return json({ ok: true, message: "Reset link sent" });
+  }),
+
+  http.post("/api/auth/reset-password", async ({ request }) => {
+    await delay(LATENCY);
+    const body = (await request.json()) as { token?: string; password?: string };
+    if (!body.token || !body.password || body.password.length < 8) {
+      return json({ error: "A valid token and a new password are required" }, { status: 400 });
+    }
+    return json({ ok: true });
   }),
 
   /* analytics */

@@ -1,23 +1,27 @@
-# SafariDesk — Operator Dashboard (frontend)
+# SafariDesk — Operator Dashboard (Next.js)
 
-React admin dashboard for SafariDesk. Guests and drivers never see it: they use
-USSD, SMS and Voice. The dashboard makes a booking visible from quote to payment
-to dispatch, and keeps the two high-risk actions (assigning a driver, sending a
-safety alert) hard to get wrong.
+React admin dashboard for SafariDesk, built on **Next.js 16 (App Router, Turbopack) +
+TypeScript + React 19**. Guests and drivers never see it: they use USSD, SMS and
+Voice. The dashboard makes a booking visible from quote to payment to dispatch,
+and keeps the two high-risk actions (assigning a driver, sending a safety alert)
+hard to get wrong.
+
+This is the Phase 1 migration of the earlier Vite app. The previous implementation
+is kept at `../frontend-legacy/` until parity is confirmed (it can be deleted once
+you are satisfied).
 
 ## Stack
 
-| Concern        | Choice                                            |
-| -------------- | ------------------------------------------------- |
-| App            | React 18 + Vite + TypeScript (no SSR, not Next.js) |
-| Routing        | React Router with a protected-route wrapper       |
-| Server data    | TanStack Query only — never copied into Zustand   |
-| UI state       | Zustand: auth token + tiny UI state               |
-| Styling        | Tailwind CSS v4 + shadcn/ui (Radix primitives)    |
-| Charts         | Recharts                                          |
-| Live updates   | Socket.IO client                                  |
-| Forms          | react-hook-form + Zod (`@hookform/resolvers`)     |
-| Toasts         | sonner                                            |
+| Concern      | Choice                                                        |
+| ------------ | ------------------------------------------------------------- |
+| Framework    | Next.js App Router + Turbopack, React 19, TypeScript          |
+| Data         | TanStack Query only — server data is never copied into Zustand |
+| UI state     | Zustand: auth token + tiny UI state                           |
+| Styling      | Tailwind CSS v4 (`@tailwindcss/postcss`) + shadcn/ui (Radix)  |
+| Charts       | Recharts                                                      |
+| Live updates | Socket.IO client                                              |
+| Forms        | react-hook-form + Zod (`@hookform/resolvers`)                 |
+| Toasts       | sonner                                                        |
 
 ## Run it
 
@@ -26,63 +30,61 @@ cd frontend
 npm install
 
 # Backend-free development against MSW mock handlers (seeded demo data):
-npm run dev            # uses .env -> VITE_USE_MOCKS=true
+npm run dev            # uses .env -> NEXT_PUBLIC_USE_MOCKS=true
 
-# Against the real Express backend (http://localhost:3000):
-VITE_USE_MOCKS=false npm run dev
+# Against the real Express backend:
+NEXT_PUBLIC_USE_MOCKS=false npm run dev
 ```
 
-`vite dev` proxies `/api` and `/socket.io` (with websockets) to
-`VITE_PROXY_TARGET`, default `http://localhost:3000`.
+Dev server: http://localhost:3000 → `/sign-in` (demo mocks accept any valid email
+with an 8+ character password). Authenticated routes live under `/dashboard`,
+`/bookings`, `/dispatch`, `/payments`, `/alerts`, `/rates`, `/feedback`.
 
 ### Scripts
 
-| Script               | Purpose                                        |
-| -------------------- | ---------------------------------------------- |
-| `npm run dev`        | Dev server on :5173 with API/socket proxy      |
-| `npm run build`      | Type-check, then production build into `dist/` |
-| `npm run preview`    | Preview the production build                   |
-| `npm run typecheck`  | `tsc --noEmit`                                 |
-| `npm run mocks`      | Copy the MSW service worker into `public/`     |
+| Script              | Purpose                                        |
+| ------------------- | ---------------------------------------------- |
+| `npm run dev`       | Dev server (Turbopack)                         |
+| `npm run build`     | Production build into `.next/`                 |
+| `npm run start`     | Serve the production build                     |
+| `npm run typecheck` | `tsc --noEmit`                                 |
+| `npm run mocks`     | Copy the MSW service worker into `public/`     |
 
 ## Environment
 
-Copy `.env.example` to `.env` for local development.
+Copy `.env.example` to `.env`.
 
-| Variable             | Meaning                                                       |
-| -------------------- | ------------------------------------------------------------- |
-| `VITE_API_URL`       | API origin. Empty = same origin (proxy in dev, backend in prod) |
-| `VITE_USE_MOCKS`     | `true` runs MSW handlers instead of a backend (dev only)      |
-| `VITE_PROXY_TARGET`  | Dev proxy target for `/api` and `/socket.io` (default :3000)  |
+| Variable               | Meaning                                                         |
+| ---------------------- | --------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`  | API origin. Empty = same origin (Express serves the built app)  |
+| `NEXT_PUBLIC_SOCKET_URL` | Socket.IO origin. Empty = same origin                         |
+| `NEXT_PUBLIC_USE_MOCKS`| `true` runs MSW handlers instead of a backend (development only)|
 
-Production: the Vite build output is served by the Express container at `/`.
-Builds must be made with `VITE_USE_MOCKS=false` (or unset).
+Production builds must leave mocks off.
 
 ## Structure
 
 ```
 src/
-  main.tsx            app bootstrap: MSW (optional), QueryClient, Router
-  App.tsx             renders routes
-  routes.tsx          route table + RequireAuth guard
-  lib/                api.ts (JWT client + ApiError), socket.ts (event names),
-                      types.ts (shared API contract), format.ts, cn.ts
-  store/auth.ts       token + user in localStorage (Zustand)
-  hooks/              useBookings, useQuote (debounced live quote),
-                      useRealtime (socket -> query invalidation + toasts),
-                      useDrivers, usePayments
+  app/
+    layout.tsx            root layout: metadata, globals.css, <Providers>
+    providers.tsx         client bootstrap: QueryClient, toasts, MSW gating
+    globals.css           theme tokens (Tailwind v4 @theme)
+    (marketing)/          / landing + /parks, /attractions, /about, /contact
+    (auth)/               /sign-in, /sign-up, /forgot-password, /reset-password
+    (app)/                authenticated shell + dashboard, bookings (list/new/[id]),
+                          dispatch, payments, alerts, rates, feedback, users, settings
   components/
-    ui/               shadcn/ui primitives (button, card, dialog, select,
-                      table, tabs, badge, skeleton, input, textarea, label, alert)
-    Layout.tsx        sidebar shell, mobile drawer, Toaster, useRealtime()
-    StatusBadge.tsx   one colour per booking status
-    Money.tsx         single KES formatter
-    ConflictAlert.tsx HTTP 409 assignment conflict with the clashing booking
-    PhoneInput.tsx    accepts 07../+254.., reports +254 E.164
-    States.tsx        skeleton / error / empty states
-  pages/              Login, Dashboard, Bookings, NewBooking, BookingDetail,
-                      Dispatch, Payments, Alerts, Rates, Feedback
-  mocks/              MSW handlers seeded from the database guide's demo data
+    ui/                   shadcn/ui primitives
+    AppShell.tsx          sidebar/top bar shell + RequireAuth guard
+    MswStarter.tsx        browser-only MSW bootstrap (next/dynamic ssr:false)
+    AuthGate.tsx          keeps signed-in users off auth pages
+    StatusBadge.tsx, Money.tsx, ConflictAlert.tsx, PhoneInput.tsx, States.tsx, PageHeader.tsx
+  views/                  page implementations (client components)
+  lib/                    api.ts (JWT client), socket.ts, types.ts, format.ts, cn.ts
+  hooks/                  useBookings, useQuote, useRealtime, useDrivers, usePayments
+  store/auth.ts           token + user (guarded for SSR)
+  mocks/                  MSW handlers seeded from the database guide's demo data
 ```
 
 ## API contract used
@@ -98,14 +100,17 @@ src/
 Socket events: `booking:created`, `booking:updated`, `payment:received`,
 `assignment:updated`, `alert:delivery`.
 
-Money is integer KES everywhere; phones are E.164 (`+254...`) and masked to the
-last three digits in lists.
+## Notes and conventions
 
-## Conventions
+- `(app)` routes are `force-dynamic`: their data comes from the API (or MSW) on
+  the client, so they must not be prerendered at build time.
+- Loading, empty and error states on every list; responsive down to 390px.
+- AI alert text is always a draft: send stays disabled until the operator checks
+  the reviewed message in the confirm dialog.
+- HTTP 409 shows `ConflictAlert` with the clashing booking, never a generic error.
 
-- Loading, empty and error states on every list — no blank screens.
-- Responsive down to 390px; tables scroll horizontally inside their container.
-- AI alert text is always a draft: send stays disabled until the operator has
-  checked the reviewed message in the confirm dialog.
-- Server messages surface as toasts; HTTP 409 gets `ConflictAlert`, never a
-  generic error.
+## Roadmap (UI overhaul prompt)
+
+Phase 2 theming (6 themes × light/dark + System) · Phase 3 3D landing page ·
+Phase 4 responsive system 320px→4K · Phase 5 smart charts/tables (TanStack Table) ·
+Phase 6 motion · Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.

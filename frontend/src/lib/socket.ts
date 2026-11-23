@@ -32,7 +32,7 @@ export interface AlertDeliveryPayload {
 }
 
 export function connectSocket(token: string): Socket {
-  return io(import.meta.env.VITE_API_URL ?? "", {
+  return io(process.env.NEXT_PUBLIC_SOCKET_URL ?? "", {
     auth: { token },
     transports: ["websocket", "polling"],
     autoConnect: true,
