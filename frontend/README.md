@@ -109,8 +109,25 @@ Socket events: `booking:created`, `booking:updated`, `payment:received`,
   the reviewed message in the confirm dialog.
 - HTTP 409 shows `ConflictAlert` with the clashing booking, never a generic error.
 
+## Theming (Phase 2)
+
+Six palettes × light/dark + System mode:
+
+1. **Savannah** (default) — golden grass, warm amber
+2. **Maasai Mara** — red ochre / shuka red
+3. **Serengeti Dusk** — sunset orange into violet
+4. **Kilimanjaro** — glacier blue and slate
+5. **Diani Coast** — turquoise and sand
+6. **Rainforest** — deep Kakamega greens
+
+`next-themes` owns the mode (`.dark` class, System aware); the palette lives in
+`store/theme.ts` (`[data-theme]` attribute, persisted in localStorage). Tokens are
+generated in `app/globals.css` as `[data-theme="…"]` blocks; every theme/mode pair is
+verified for WCAG AA contrast, and chart series read `--chart-1 … --chart-5`.
+`prefers-reduced-motion` and `prefers-contrast` are respected globally.
+
 ## Roadmap (UI overhaul prompt)
 
-Phase 2 theming (6 themes × light/dark + System) · Phase 3 3D landing page ·
+~~Phase 2 theming~~ done · Phase 3 3D landing page ·
 Phase 4 responsive system 320px→4K · Phase 5 smart charts/tables (TanStack Table) ·
 Phase 6 motion · Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.

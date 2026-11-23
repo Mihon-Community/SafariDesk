@@ -35,10 +35,10 @@ import {
 import { ErrorState, EmptyState } from "@/components/States";
 
 const ASSIGNMENT_CHIP: Record<string, string> = {
-  WAITING: "bg-amber-100 text-amber-800 border-amber-200",
-  ACCEPTED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  DECLINED: "bg-red-100 text-red-700 border-red-200",
-  CANCELLED: "bg-stone-100 text-stone-600 border-stone-200",
+  WAITING: "chip-warning",
+  ACCEPTED: "chip-success",
+  DECLINED: "chip-danger",
+  CANCELLED: "chip-neutral",
 };
 
 /** Bookings in these statuses still need (or should have) a driver. */

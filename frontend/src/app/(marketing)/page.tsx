@@ -14,22 +14,22 @@ export const metadata = {
  */
 export default function LandingPage() {
   return (
-    <main className="flex min-h-dvh flex-col bg-[#143c2c] text-white">
+    <main className="flex min-h-dvh flex-col bg-brand text-brand-foreground">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 font-bold text-[#143c2c]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent font-bold text-accent-foreground">
             S
           </div>
           <span className="text-lg font-semibold">SafariDesk</span>
         </div>
         <nav className="flex items-center gap-2">
           <Link href="/sign-in">
-            <Button variant="ghost" className="text-white/80 hover:bg-white/10 hover:text-white">
+            <Button variant="ghost" className="text-brand-foreground/80 hover:bg-brand-foreground/10 hover:text-brand-foreground">
               Sign in
             </Button>
           </Link>
           <Link href="/sign-up">
-            <Button className="bg-amber-500 text-[#143c2c] hover:bg-amber-400">Get started</Button>
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90">Get started</Button>
           </Link>
         </nav>
       </header>
@@ -39,32 +39,32 @@ export default function LandingPage() {
           <h1 className="text-3xl font-semibold leading-tight sm:text-5xl">
             Run your safari business from one dashboard.
           </h1>
-          <p className="max-w-xl text-sm text-white/70 sm:text-base">
+          <p className="max-w-xl text-sm text-brand-foreground/70 sm:text-base">
             Quotes in under a minute, M-Pesa deposits reconciled automatically, drivers
             dispatched by SMS and safety alerts that reach every guest on an active trip.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/sign-up">
-              <Button className="bg-amber-500 text-[#143c2c] hover:bg-amber-400">
+              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
                 Plan a safari
               </Button>
             </Link>
             <Link href="/sign-in">
               <Button
                 variant="outline"
-                className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                className="border-brand-foreground/30 bg-transparent text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
               >
                 Operator sign in
               </Button>
             </Link>
           </div>
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-brand-foreground/50">
             Phase 3 adds the interactive 3D hero, park gallery and AI itinerary teaser.
           </p>
         </div>
-        <div className="hidden rounded-2xl border border-white/10 bg-white/5 p-6 lg:block">
-          <p className="text-sm font-medium text-white/80">Eight modules, one booking record</p>
-          <ul className="mt-3 space-y-2 text-sm text-white/70">
+        <div className="hidden rounded-2xl border border-brand-foreground/10 bg-brand-foreground/5 p-6 lg:block">
+          <p className="text-sm font-medium text-brand-foreground/80">Eight modules, one booking record</p>
+          <ul className="mt-3 space-y-2 text-sm text-brand-foreground/70">
             <li>Booking &amp; quoting — web, USSD and SMS</li>
             <li>Payments — M-Pesa STK push, receipts, reconciliation</li>
             <li>Dispatch — drivers, vehicles, conflict checks</li>
@@ -74,7 +74,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/50 sm:px-6">
+      <footer className="border-t border-brand-foreground/10 px-4 py-6 text-center text-xs text-brand-foreground/50 sm:px-6">
         SafariDesk · Nairobi · Built for Africa&apos;s Talking Marketplace
       </footer>
     </main>

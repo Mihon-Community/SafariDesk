@@ -52,10 +52,10 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#143c2c] p-4">
+    <div className="flex min-h-dvh items-center justify-center bg-brand p-4">
       <Card className="w-full max-w-sm shadow-lg">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-lg font-bold text-[#143c2c]">
+          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-lg font-bold text-accent-foreground">
             S
           </div>
           <CardTitle className="text-xl">SafariDesk</CardTitle>

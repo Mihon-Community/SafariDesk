@@ -7,7 +7,7 @@ export const metadata = { title: "Reset password — SafariDesk" };
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#143c2c] p-4">
+    <div className="flex min-h-dvh items-center justify-center bg-brand p-4">
       <Card className="w-full max-w-sm shadow-lg">
         <CardHeader className="items-center text-center">
           <CardTitle className="text-xl">Choose a new password</CardTitle>

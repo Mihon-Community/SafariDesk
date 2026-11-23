@@ -2,12 +2,12 @@ import type { BookingStatus } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 const STATUS_STYLES: Record<BookingStatus, string> = {
-  PENDING: "bg-stone-100 text-stone-700 border-stone-200",
-  DEPOSIT_PAID: "bg-sky-100 text-sky-800 border-sky-200",
-  CONFIRMED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  ACTIVE: "bg-teal-100 text-teal-800 border-teal-200",
-  COMPLETED: "bg-stone-800 text-stone-50 border-stone-700",
-  CANCELLED: "bg-red-100 text-red-700 border-red-200",
+  PENDING: "chip-neutral",
+  DEPOSIT_PAID: "chip-info",
+  CONFIRMED: "chip-success",
+  ACTIVE: "chip-success",
+  COMPLETED: "chip-done",
+  CANCELLED: "chip-danger",
 };
 
 const STATUS_LABELS: Record<BookingStatus, string> = {

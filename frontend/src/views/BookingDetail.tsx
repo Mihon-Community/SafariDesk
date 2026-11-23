@@ -54,17 +54,17 @@ import { ErrorState, EmptyState } from "@/components/States";
 const FLOW: BookingStatus[] = ["PENDING", "DEPOSIT_PAID", "CONFIRMED", "ACTIVE", "COMPLETED"];
 
 const ASSIGNMENT_CHIP: Record<string, string> = {
-  WAITING: "bg-amber-100 text-amber-800 border-amber-200",
-  ACCEPTED: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  DECLINED: "bg-red-100 text-red-700 border-red-200",
-  CANCELLED: "bg-stone-100 text-stone-600 border-stone-200",
+  WAITING: "chip-warning",
+  ACCEPTED: "chip-success",
+  DECLINED: "chip-danger",
+  CANCELLED: "chip-neutral",
 };
 
 const PAYMENT_CHIP: Record<PaymentStatus, string> = {
-  PENDING: "bg-amber-100 text-amber-800 border-amber-200",
-  SUCCESS: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  FAILED: "bg-red-100 text-red-700 border-red-200",
-  MANUAL: "bg-sky-100 text-sky-800 border-sky-200",
+  PENDING: "chip-warning",
+  SUCCESS: "chip-success",
+  FAILED: "chip-danger",
+  MANUAL: "chip-info",
 };
 
 export default function BookingDetail() {

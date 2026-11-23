@@ -21,6 +21,7 @@ import { useAuth } from "@/store/auth";
 import { useRealtime } from "@/hooks/useRealtime";
 import { initials } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { ThemeMenu } from "@/components/ThemeMenu";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -38,18 +39,21 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav className="flex flex-col gap-1 px-3">
       {NAV.map(({ to, label, icon: Icon }) => {
+        const section = `/${to.split("/")[1]}`;
         const active =
-          to === "/dashboard" ? pathname === to : pathname.startsWith(to.split("/").slice(0, 2).join("/")) && !(to === "/bookings" && pathname.startsWith("/bookings/new"));
+          pathname === to ||
+          (pathname.startsWith(section) && !(to === "/bookings" && pathname.startsWith("/bookings/new")));
         return (
           <Link
             key={to}
             href={to}
             onClick={onNavigate}
+            aria-current={active ? "page" : undefined}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-white/15 text-white"
-                : "text-white/70 hover:bg-white/10 hover:text-white",
+                ? "bg-brand-foreground/15 text-brand-foreground"
+                : "text-brand-foreground/70 hover:bg-brand-foreground/10 hover:text-brand-foreground",
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
@@ -77,7 +81,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** Authenticated shell: sidebar on desktop, drawer + top bar on mobile. */
+/** Authenticated shell: sidebar + top bar on desktop, drawer + top bar on mobile. */
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const logout = useAuth((s) => s.logout);
@@ -95,32 +99,32 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-background">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-[#143c2c] md:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-brand md:flex">
         <Link href="/dashboard" className="flex items-center gap-2 px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 font-bold text-[#143c2c]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent font-bold text-accent-foreground">
             S
           </div>
           <div>
-            <p className="text-base font-semibold leading-none text-white">SafariDesk</p>
-            <p className="mt-1 text-xs leading-none text-white/60">Operator dashboard</p>
+            <p className="text-base font-semibold leading-none text-brand-foreground">SafariDesk</p>
+            <p className="mt-1 text-xs leading-none text-brand-foreground/60">Operator dashboard</p>
           </div>
         </Link>
         <NavItems />
-        <div className="mt-auto border-t border-white/10 p-4">
+        <div className="mt-auto border-t border-brand-foreground/10 p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-foreground/15 text-xs font-semibold text-brand-foreground">
               {initials(user?.email ?? "Admin")}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{user?.email ?? "Admin"}</p>
-              <p className="text-xs capitalize text-white/60">{user?.role ?? "admin"}</p>
+              <p className="truncate text-sm font-medium text-brand-foreground">{user?.email ?? "Admin"}</p>
+              <p className="text-xs capitalize text-brand-foreground/60">{user?.role ?? "admin"}</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={handleLogout}
               title="Sign out"
-              className="text-white/70 hover:bg-white/10 hover:text-white"
+              className="text-brand-foreground/70 hover:bg-brand-foreground/10 hover:text-brand-foreground"
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -128,13 +132,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* Mobile top bar */}
+      {/* Top bar (mobile) */}
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-card px-4 py-3 md:hidden">
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open menu">
           <Menu className="h-5 w-5" />
         </Button>
         <p className="text-sm font-semibold">SafariDesk</p>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          <ThemeMenu />
           <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Sign out">
             <LogOut className="h-4 w-4" />
           </Button>
@@ -145,26 +150,29 @@ export function AppShell({ children }: { children: ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-[#143c2c]">
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-brand">
             <div className="flex items-center justify-between px-5 py-5">
-              <p className="text-base font-semibold text-white">SafariDesk</p>
+              <p className="text-base font-semibold text-brand-foreground">SafariDesk</p>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setMobileOpen(false)}
-                className="text-white/70 hover:bg-white/10 hover:text-white"
+                className="text-brand-foreground/70 hover:bg-brand-foreground/10 hover:text-brand-foreground"
                 aria-label="Close menu"
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
             <NavItems onNavigate={() => setMobileOpen(false)} />
-            <div className="mt-auto border-t border-white/10 p-4">
-              <p className="truncate text-sm text-white/80">{user?.email ?? "Admin"}</p>
+            <div className="mt-auto space-y-3 border-t border-brand-foreground/10 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-sm text-brand-foreground/80">{user?.email ?? "Admin"}</p>
+                <ThemeMenu />
+              </div>
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-2 w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                className="w-full border-brand-foreground/30 bg-transparent text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
                 onClick={handleLogout}
               >
                 Sign out
@@ -175,7 +183,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       <main className="md:pl-64">
-        <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">{children}</div>
+        <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
+          {/* Top bar (desktop) */}
+          <div className="mb-6 hidden items-center justify-end gap-3 md:flex">
+            <p className="mr-auto text-sm text-muted-foreground">
+              Signed in as <span className="font-medium text-foreground">{user?.email ?? "Admin"}</span>
+            </p>
+            <ThemeMenu />
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   );
