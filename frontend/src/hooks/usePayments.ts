@@ -9,3 +9,11 @@ export function usePayments() {
     queryFn: () => api<Reconciliation>("/api/payments/reconciliation"),
   });
 }
+
+/** Raw payment records, used by the AI anomaly checks panel. */
+export function usePaymentRecords() {
+  return useQuery({
+    queryKey: ["payment-records"],
+    queryFn: () => api<import("../lib/types").Payment[]>("/api/payments"),
+  });
+}

@@ -165,8 +165,29 @@ verified for WCAG AA contrast, and chart series read `--chart-1 … --chart-5`.
 Verified at 360×800, 390×844, 768×1024, 1280×800, 1440×900 and 1920×1080 with zero
 horizontal overflow; KPI rows measured 1 column at 360px and 6 at 1920px.
 
+## Cards, charts and tables (Phase 5)
+
+- **KPI cards** (`components/KpiCard.tsx`): icon, eased count-up value (skipped under
+  `prefers-reduced-motion`), delta badge with colour + text, sparkline and a tooltip.
+- **Charts** (`components/charts/`) all read theme colours through `--chart-*` /
+  `--color-*` CSS vars and ship an accessible `<details>` data-table fallback:
+  - Revenue area chart with **7D/30D/90D/YTD selector**, previous-period dashed line,
+    brush zoom, CSV export and abbreviated axis numbers.
+  - Status donut (centre total), bookings-by-park horizontal bars, payments-by-method
+    stacked bars, per-driver utilisation radials, 8-week occupancy heatmap.
+  - Demand forecast with the AI **dashed forecast line + shaded confidence band**.
+- **AI features are served by Python**: `/api/ai/*` proxies to the FastAPI sidecar in
+  `../ai` (`uvicorn app:app --port 8001`, see `../ai/README.md`). Payments shows an
+  anomaly panel (duplicate M-Pesa refs / conflicting amounts); Feedback shows a
+  sentiment trend. MSW stand-ins keep those two screens demonstrable without the
+  sidecar running.
+- **Data table** (`components/DataTable.tsx`, TanStack Table): sorting, global search,
+  column visibility, density toggle, row selection with bulk confirm/cancel, CSV export,
+  pagination and a persisted view (`localStorage:datatable:<id>`). Bookings uses it on
+  `md+` and the stacked-card table below.
+
 ## Roadmap (UI overhaul prompt)
 
 ~~Phase 2 theming~~ done · ~~Phase 3 landing page~~ done · ~~Phase 4 responsive system~~ done ·
-Phase 5 smart charts/tables (TanStack Table + Python AI sidecar) ·
+~~Phase 5 cards/charts/tables + Python AI sidecar~~ done ·
 Phase 6 motion · Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.

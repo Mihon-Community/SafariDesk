@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { CheckCircle2, AlertTriangle, HelpCircle } from "lucide-react";
 
-import { usePayments } from "@/hooks/usePayments";
+import { usePayments, usePaymentRecords } from "@/hooks/usePayments";
+import { usePaymentAnomalies } from "@/hooks/useAi";
 import type { ReconciliationRow } from "@/lib/types";
 import { maskPhone } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
@@ -17,6 +18,8 @@ import { ErrorState, EmptyState } from "@/components/States";
 
 export default function Payments() {
   const query = usePayments();
+  const records = usePaymentRecords();
+  const anomalies = usePaymentAnomalies(records.data);
   const data = query.data;
 
   const tabs = data
@@ -35,6 +38,47 @@ export default function Payments() {
       />
 
       {query.isLoading && <Skeleton className="h-72 w-full" />}
+
+      {/* AI checks — rules first, from the Python service (MSW stand-in in dev) */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium">AI payment checks</p>
+            <Badge variant="secondary" className="text-[10px]">
+              {anomalies.data?.length ?? 0} flags
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              Duplicate M-Pesa references and conflicting amounts are flagged for review before
+              reconciliation.
+            </span>
+          </div>
+          {anomalies.isLoading && <p className="py-3 text-xs text-muted-foreground">Checking…</p>}
+          {!anomalies.isLoading && (anomalies.data?.length ?? 0) === 0 && (
+            <p className="py-3 text-xs text-muted-foreground">No anomalies detected.</p>
+          )}
+          {(anomalies.data?.length ?? 0) > 0 && (
+            <ul className="mt-1 divide-y text-xs">
+              {anomalies.data!.map((flag, i) => (
+                <li key={i} className="flex flex-wrap items-center gap-2 py-2">
+                  <Badge
+                    variant={flag.severity === "CRITICAL" ? "destructive" : "outline"}
+                    className="text-[10px]"
+                  >
+                    {flag.severity}
+                  </Badge>
+                  <span>{flag.reason}</span>
+                  {flag.id != null && (
+                    <Link href="/payments" className="ml-auto text-primary hover:underline">
+                      Review
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       {query.isError && (
         <ErrorState

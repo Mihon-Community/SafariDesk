@@ -1,9 +1,14 @@
 import { delay, http, HttpResponse } from "msw";
+import { dailySeries } from "./analytics";
 
 /**
  * MSW handlers mirroring the agreed API contract.
- * Used with VITE_USE_MOCKS=true until the Express backend is running.
+ * Used with NEXT_PUBLIC_USE_MOCKS=true until the Express backend is running.
  * Seed numbers follow the database guide's placeholder rates.
+ *
+ * `/api/ai/*` here are development stand-ins: production calls the Python
+ * sidecar in `../ai` (uvicorn on :8001) which owns all AI behaviour. The mocks
+ * keep the UI demonstrable without the service running.
  */
 
 /* ------------------------------- seed data ------------------------------ */
@@ -819,5 +824,160 @@ export const handlers = [
       }
     }
     return json(row);
+  }),
+
+  /* ------------------------- analytics extras (Phase 5) ------------------------- */
+
+  http.get("/api/analytics/daily", async () => {
+    await delay(LATENCY);
+    return json({ days: dailySeries(90) });
+  }),
+
+  http.get("/api/analytics/by-park", async () => {
+    await delay(LATENCY);
+    const counts = new Map<string, number>();
+    for (const b of db.bookings) {
+      const park = db.parks.find((p) => p.id === b.parkId)?.name ?? "Other";
+      counts.set(park, (counts.get(park) ?? 0) + 1);
+    }
+    // pad to every park so the chart shows zeros honestly
+    for (const p of db.parks) if (!counts.has(p.name)) counts.set(p.name, 0);
+    return json({
+      parks: [...counts.entries()]
+        .map(([park, bookings]) => ({ park, bookings }))
+        .sort((a, b) => b.bookings - a.bookings),
+    });
+  }),
+
+  http.get("/api/analytics/payment-methods", async () => {
+    await delay(LATENCY);
+    const methods = ["M-PESA", "CARD", "CASH", "BANK"];
+    const rand = [0.62, 0.18, 0.14, 0.06];
+    const series = ["collected", "pending"] as const;
+    const out = series.map((status) => {
+      const row: Record<string, number | string> = { status };
+      db.payments.forEach((p, i) => {
+        const m = methods[i % methods.length];
+        if ((status === "collected") === (p.status === "SUCCESS")) {
+          row[m] = Number(row[m] ?? 0) + p.amount;
+        }
+        void rand;
+      });
+      return row;
+    });
+    return json({ methods, rows: out });
+  }),
+
+  http.get("/api/analytics/driver-utilisation", async () => {
+    await delay(LATENCY);
+    const drivers = db.drivers.map((d) => {
+      const assignments = db.assignments.filter(
+        (a) => a.driverId === d.id && ["WAITING", "ACCEPTED", "COMPLETED"].includes(a.status),
+      ).length;
+      return {
+        id: d.id,
+        name: d.name,
+        active: assignments > 0,
+        assigned: assignments,
+        utilisation: Math.min(100, assignments * 34),
+      };
+    });
+    return json({ drivers });
+  }),
+
+  /* ----------------------- AI stand-ins (see ../ai) ----------------------- */
+
+  http.get("/api/payments", async () => {
+    await delay(LATENCY);
+    return json(
+      db.payments.map((p) => ({
+        ...p,
+        guestPhone: p.phone,
+      })),
+    );
+  }),
+
+  http.post("/api/ai/forecast", async ({ request }) => {
+    await delay(LATENCY);
+    const body = (await request.json()) as { months?: string[]; bookings?: number[] };
+    const months = body.months?.slice(-6) ?? [];
+    const values = body.bookings?.slice(-6) ?? [];
+    const points: Array<{
+      month: string;
+      bookings: number;
+      forecast: number | null;
+      lower: number | null;
+      upper: number | null;
+    }> = months.map((month, i) => ({
+      month,
+      bookings: Number(values[i] ?? 0),
+      forecast: null,
+      lower: null,
+      upper: null,
+    }));
+    // simple moving average projection, mirroring the Python service
+    const tail = values.slice(-3);
+    const avg = tail.reduce((a, b) => a + b, 0) / Math.max(tail.length, 1);
+    for (let k = 1; k <= 3; k++) {
+      const last = new Date(`${months[months.length - 1]}-15`);
+      last.setMonth(last.getMonth() + k);
+      points.push({
+        month: `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}`,
+        bookings: 0,
+        forecast: Math.round(avg * 10) / 10,
+        lower: Math.max(0, Math.round((avg * 0.85) * 10) / 10),
+        upper: Math.round((avg * 1.15) * 10) / 10,
+      });
+    }
+    return json({ points, method: "sma3" });
+  }),
+
+  http.post("/api/ai/anomalies", async ({ request }) => {
+    await delay(LATENCY);
+    const body = (await request.json()) as { kind: string; rows: Array<Record<string, any>> };
+    const out: Array<{ id: unknown; kind: string; reason: string; severity: string }> = [];
+    if (body.kind === "payments") {
+      const refs = new Map<string, number>();
+      for (const row of body.rows) {
+        const ref = String(row.mpesaRef ?? row.providerRef ?? "");
+        if (!ref) continue;
+        refs.set(ref, (refs.get(ref) ?? 0) + 1);
+        if (refs.get(ref) === 2) {
+          out.push({ id: row.id, kind: "payment", reason: `Duplicate reference ${ref}`, severity: "WARNING" });
+        }
+      }
+    } else {
+      const days = new Map<string, number>();
+      for (const row of body.rows) {
+        const start = String(row.startDate ?? "").slice(0, 10);
+        if (!start) continue;
+        days.set(start, (days.get(start) ?? 0) + 1);
+        if (days.get(start) === 4) {
+          out.push({
+            id: row.id,
+            kind: "booking",
+            reason: `Four trips start on ${start}; check fleet capacity`,
+            severity: "INFO",
+          });
+        }
+      }
+    }
+    return json({ anomalies: out });
+  }),
+
+  http.post("/api/ai/sentiment", async ({ request }) => {
+    await delay(LATENCY);
+    const body = (await request.json()) as { text: string };
+    const text = body.text.toLowerCase();
+    const positive = ["great", "good", "loved", "amazing", "excellent", "beautiful", "asante", "happy"];
+    const negative = ["bad", "poor", "late", "dirty", "rude", "broken", "hot", "disappointed", "worst"];
+    const pos = positive.filter((w) => text.includes(w)).length;
+    const neg = negative.filter((w) => text.includes(w)).length;
+    const sentiment = pos > neg ? "positive" : neg > pos ? "negative" : "neutral";
+    return json({
+      sentiment,
+      score: Math.max(-1, Math.min(1, (pos - neg) / 6)),
+      topics: ["driver", "vehicle", "wildlife", "food"].filter((t) => text.includes(t)),
+    });
   }),
 ];

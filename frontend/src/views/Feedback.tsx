@@ -17,7 +17,13 @@ import {
 import { api } from "@/lib/api";
 import type { AnalyticsSummary, Booking, FeedbackEntry } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
+import { useSentimentScores } from "@/hooks/useAi";
 import { PageHeader } from "@/components/PageHeader";
+import {
+  ChartContainer,
+  ChartFallback,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/Money";
@@ -53,6 +59,28 @@ export default function Feedback() {
 
   const loading = feedbackQuery.isLoading || summaryQuery.isLoading || bookingsQuery.isLoading;
 
+  /** AI sentiment per comment (Python service; MSW stand-in in dev). */
+  const sentiment = useSentimentScores(
+    feedbackQuery.data?.map((f) => ({ id: f.id, text: f.comment ?? "" })),
+  );
+
+  /** Sentiment counts per month, for the trend chart. */
+  const sentimentTrend = useMemo(() => {
+    const rows = new Map<string, { month: string; positive: number; neutral: number; negative: number }>();
+    for (const entry of feedbackQuery.data ?? []) {
+      const month = entry.createdAt.slice(0, 7);
+      if (!rows.has(month)) rows.set(month, { month, positive: 0, neutral: 0, negative: 0 });
+    }
+    for (const score of sentiment.data ?? []) {
+      const entry = (feedbackQuery.data ?? []).find((f) => f.id === score.id);
+      if (!entry) continue;
+      const bucket = rows.get(entry.createdAt.slice(0, 7));
+      if (!bucket) continue;
+      bucket[score.sentiment] += 1;
+    }
+    return [...rows.values()].sort((a, b) => a.month.localeCompare(b.month));
+  }, [feedbackQuery.data, sentiment.data]);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -64,6 +92,47 @@ export default function Feedback() {
 
       {!loading && (
         <>
+          {/* Sentiment trend — AI service scores each comment */}
+          <Card>
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm">Sentiment trend</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Each comment scored by the Python AI service; stacked per month.
+              </p>
+            </CardHeader>
+            <CardContent className="p-4 pt-2">
+              {sentimentTrend.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No feedback yet to score.
+                </p>
+              ) : (
+                <ChartContainer config={{}} className="h-52 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={sentimentTrend} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                      <YAxis
+                        allowDecimals={false}
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <Tooltip content={<ChartTooltipContent formatter={(v) => `${v} comments`} />} />
+                      <Bar dataKey="positive" stackId="s" fill="var(--chart-2)" />
+                      <Bar dataKey="neutral" stackId="s" fill="var(--muted)" />
+                      <Bar dataKey="negative" stackId="s" fill="var(--status-danger-bg)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              )}
+              <ChartFallback
+                caption="Feedback sentiment per month"
+                columns={["Month", "Positive", "Neutral", "Negative"]}
+                rows={sentimentTrend.map((r) => [r.month, r.positive, r.neutral, r.negative])}
+              />
+            </CardContent>
+          </Card>
+
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Demand chart */}
             <Card>

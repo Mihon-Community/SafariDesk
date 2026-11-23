@@ -1,18 +1,11 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
 import { useAuth } from "@/store/auth";
-
-// Browser-only MSW bootstrap: ssr:false keeps Turbopack from resolving
-// msw/browser (which is node:null in its exports map) for the server bundle.
-const MswStarter = dynamic(() => import("@/components/MswStarter"), {
-  ssr: false,
-  loading: () => null,
-});
+import MswStarter from "@/components/MswStarter";
 
 const queryClient = new QueryClient({
   defaultOptions: {

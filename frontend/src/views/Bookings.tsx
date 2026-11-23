@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Money } from "@/components/Money";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/States";
+import { BookingsTable } from "@/components/BookingsTable";
 
 export default function Bookings() {
   const router = useRouter();
@@ -163,7 +164,11 @@ export default function Bookings() {
             </div>
           )}
           {data && data.length > 0 && (
-            <div className="rtable-wrap">
+            <>
+              <div className="hidden p-3 md:block">
+                <BookingsTable data={data} />
+              </div>
+              <div className="rtable-wrap md:hidden">
               <Table className="rtable">
               <TableHeader>
                 <TableRow>
@@ -205,7 +210,8 @@ export default function Bookings() {
                 ))}
               </TableBody>
               </Table>
-            </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
