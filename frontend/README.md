@@ -6,10 +6,6 @@ Voice. The dashboard makes a booking visible from quote to payment to dispatch,
 and keeps the two high-risk actions (assigning a driver, sending a safety alert)
 hard to get wrong.
 
-This is the Phase 1 migration of the earlier Vite app. The previous implementation
-is kept at `../frontend-legacy/` until parity is confirmed (it can be deleted once
-you are satisfied).
-
 ## Stack
 
 | Concern      | Choice                                                        |
