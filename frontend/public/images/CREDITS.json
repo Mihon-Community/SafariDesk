@@ -1,0 +1,263 @@
+{
+  "credits": [
+    {
+      "title": "File:The Savannah\u2019s Last Ember.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4a/The_Savannah%E2%80%99s_Last_Ember.jpg/1920px-The_Savannah%E2%80%99s_Last_Ember.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:The_Savannah%E2%80%99s_Last_Ember.jpg",
+      "artist": "Temptious",
+      "license": "CC0",
+      "width": 4000,
+      "group": "hero",
+      "query": "savannah sunset acacia Africa",
+      "file": "/images/hero/savannah-sunset-acacia-africa.jpg",
+      "bytes": 583847
+    },
+    {
+      "title": "File:Landscape of northern Maasai Mara Preserve, Kenya.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/08/Landscape_of_northern_Maasai_Mara_Preserve%2C_Kenya.jpg/1920px-Landscape_of_northern_Maasai_Mara_Preserve%2C_Kenya.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Landscape_of_northern_Maasai_Mara_Preserve,_Kenya.jpg",
+      "artist": "Daniel Case",
+      "license": "CC BY-SA 4.0",
+      "width": 7360,
+      "group": "parks",
+      "query": "Maasai Mara landscape",
+      "file": "/images/parks/maasai-mara-landscape.jpg",
+      "bytes": 728982
+    },
+    {
+      "title": "File:Amboseli National Park and Mt. Kilimanjaro.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e1/Amboseli_National_Park_and_Mt._Kilimanjaro.jpg/1920px-Amboseli_National_Park_and_Mt._Kilimanjaro.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Amboseli_National_Park_and_Mt._Kilimanjaro.jpg",
+      "artist": "Ninaras",
+      "license": "CC BY 4.0",
+      "width": 5860,
+      "group": "parks",
+      "query": "Amboseli elephants Kilimanjaro",
+      "file": "/images/parks/amboseli-elephants-kilimanjaro.jpg",
+      "bytes": 874765
+    },
+    {
+      "title": "File:High ground - Flickr - Rob Oo.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f7/High_ground_-_Flickr_-_Rob_Oo.jpg/1920px-High_ground_-_Flickr_-_Rob_Oo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:High_ground_-_Flickr_-_Rob_Oo.jpg",
+      "artist": "Rob Oo from NL",
+      "license": "CC BY 2.0",
+      "width": 6226,
+      "group": "parks",
+      "query": "Tsavo East landscape",
+      "file": "/images/parks/tsavo-east-landscape.jpg",
+      "bytes": 834346
+    },
+    {
+      "title": "File:Tsavo West National Park, Kenya, 2025.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1b/Tsavo_West_National_Park%2C_Kenya%2C_2025.jpg/1920px-Tsavo_West_National_Park%2C_Kenya%2C_2025.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Tsavo_West_National_Park,_Kenya,_2025.jpg",
+      "artist": "Richard Mortel",
+      "license": "CC BY 4.0",
+      "width": 16320,
+      "group": "parks",
+      "query": "Tsavo West landscape",
+      "file": "/images/parks/tsavo-west-landscape.jpg",
+      "bytes": 801919
+    },
+    {
+      "title": "File:Samburu National Reserve landscape with pyramid mountain.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/Samburu_National_Reserve_landscape_with_pyramid_mountain.jpg/1920px-Samburu_National_Reserve_landscape_with_pyramid_mountain.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Samburu_National_Reserve_landscape_with_pyramid_mountain.jpg",
+      "artist": "Daniel Case",
+      "license": "CC BY-SA 4.0",
+      "width": 7360,
+      "group": "parks",
+      "query": "Samburu reserve landscape",
+      "file": "/images/parks/samburu-reserve-landscape.jpg",
+      "bytes": 803863
+    },
+    {
+      "title": "File:Lake Nakuru National Park 03 - Lesser flamingo (Phoeniconaias minor).jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Lake_Nakuru_National_Park_03_-_Lesser_flamingo_%28Phoeniconaias_minor%29.jpg/1920px-Lake_Nakuru_National_Park_03_-_Lesser_flamingo_%28Phoeniconaias_minor%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Lake_Nakuru_National_Park_03_-_Lesser_flamingo_(Phoeniconaias_minor).jpg",
+      "artist": "Thomas Fuhrmann",
+      "license": "CC BY-SA 4.0",
+      "width": 5758,
+      "group": "parks",
+      "query": "Lake Nakuru flamingos",
+      "file": "/images/parks/lake-nakuru-flamingos.jpg",
+      "bytes": 173139
+    },
+    {
+      "title": "File:Male maasai Ostrich facing the Nairobi Skyline from the Nairobi National park.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/Male_maasai_Ostrich_facing_the_Nairobi_Skyline_from_the_Nairobi_National_park.jpg/1920px-Male_maasai_Ostrich_facing_the_Nairobi_Skyline_from_the_Nairobi_National_park.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Male_maasai_Ostrich_facing_the_Nairobi_Skyline_from_the_Nairobi_National_park.jpg",
+      "artist": "Shadychiri",
+      "license": "CC BY 4.0",
+      "width": 6000,
+      "group": "parks",
+      "query": "Nairobi National Park skyline",
+      "file": "/images/parks/nairobi-national-park-skyline.jpg",
+      "bytes": 584551
+    },
+    {
+      "title": "File:Serengeti-Landscape-2012.JPG",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0b/Serengeti-Landscape-2012.JPG/1920px-Serengeti-Landscape-2012.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Serengeti-Landscape-2012.JPG",
+      "artist": "Bj\u00f8rn Christian T\u00f8rrissen",
+      "license": "CC BY-SA 3.0",
+      "width": 4589,
+      "group": "parks",
+      "query": "Serengeti plains",
+      "file": "/images/parks/serengeti-plains.jpg",
+      "bytes": 708409
+    },
+    {
+      "title": "File:Paisaje en la zona de conservaci\u00f3n de Ngorongoro, Tanzania, 2024-05-27, DD 57.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/Paisaje_en_la_zona_de_conservaci%C3%B3n_de_Ngorongoro%2C_Tanzania%2C_2024-05-27%2C_DD_57.jpg/1920px-Paisaje_en_la_zona_de_conservaci%C3%B3n_de_Ngorongoro%2C_Tanzania%2C_2024-05-27%2C_DD_57.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Paisaje_en_la_zona_de_conservaci%C3%B3n_de_Ngorongoro,_Tanzania,_2024-05-27,_DD_57.jpg",
+      "artist": "Diego Delso",
+      "license": "CC BY-SA 4.0",
+      "width": 8688,
+      "group": "parks",
+      "query": "Ngorongoro crater",
+      "file": "/images/parks/ngorongoro-crater.jpg",
+      "bytes": 456323
+    },
+    {
+      "title": "File:Western white-bearded wildebeest (Connochaetes taurinus mearnsi) Mara River crossing 1b.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/33/Western_white-bearded_wildebeest_%28Connochaetes_taurinus_mearnsi%29_Mara_River_crossing_1b.jpg/1280px-Western_white-bearded_wildebeest_%28Connochaetes_taurinus_mearnsi%29_Mara_River_crossing_1b.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Western_white-bearded_wildebeest_(Connochaetes_taurinus_mearnsi)_Mara_River_crossing_1b.jpg",
+      "artist": "Charles J. Sharp",
+      "license": "CC BY-SA 4.0",
+      "width": 6960,
+      "group": "attractions",
+      "query": "Great Migration wildebeest river crossing",
+      "file": "/images/attractions/great-migration-wildebeest-river-crossing.jpg",
+      "bytes": 406626
+    },
+    {
+      "title": "File:Lamu old town street.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/80/Lamu_old_town_street.jpg/1280px-Lamu_old_town_street.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Lamu_old_town_street.jpg",
+      "artist": "Mzein04",
+      "license": "CC BY-SA 4.0",
+      "width": 6000,
+      "group": "attractions",
+      "query": "Lamu Old Town",
+      "file": "/images/attractions/lamu-old-town.jpg",
+      "bytes": 284904
+    },
+    {
+      "title": "File:MOUNT KENYA IN THE MORNING 03.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/40/MOUNT_KENYA_IN_THE_MORNING_03.jpg/1280px-MOUNT_KENYA_IN_THE_MORNING_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:MOUNT_KENYA_IN_THE_MORNING_03.jpg",
+      "artist": "John Mynaar",
+      "license": "CC BY-SA 4.0",
+      "width": 3264,
+      "group": "attractions",
+      "query": "Mount Kenya",
+      "file": "/images/attractions/mount-kenya.jpg",
+      "bytes": 258569
+    },
+    {
+      "title": "File:Hell's gate National park view 2022.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Hell%27s_gate_National_park_view_2022.jpg/1280px-Hell%27s_gate_National_park_view_2022.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Hell%27s_gate_National_park_view_2022.jpg",
+      "artist": "Sir Reagan",
+      "license": "CC BY-SA 4.0",
+      "width": 4608,
+      "group": "attractions",
+      "query": "Hell's Gate National Park",
+      "file": "/images/attractions/hell-s-gate-national-park.jpg",
+      "bytes": 368376
+    },
+    {
+      "title": "File:Wikimania 2025 - Nairobi - ZI Jony - Photowalk at Giraffe Centre, 8 August 2025 (1).jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/Wikimania_2025_-_Nairobi_-_ZI_Jony_-_Photowalk_at_Giraffe_Centre%2C_8_August_2025_%281%29.jpg/1280px-Wikimania_2025_-_Nairobi_-_ZI_Jony_-_Photowalk_at_Giraffe_Centre%2C_8_August_2025_%281%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Wikimania_2025_-_Nairobi_-_ZI_Jony_-_Photowalk_at_Giraffe_Centre,_8_August_2025_(1).jpg",
+      "artist": "ZI Jony",
+      "license": "CC BY-SA 4.0",
+      "width": 6000,
+      "group": "attractions",
+      "query": "Giraffe Centre Nairobi",
+      "file": "/images/attractions/giraffe-centre-nairobi.jpg",
+      "bytes": 477782
+    },
+    {
+      "title": "File:A Caretakers Feeds a Baby Elephant at the Sheldrick Elephant Orphanage (16735530794).jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/A_Caretakers_Feeds_a_Baby_Elephant_at_the_Sheldrick_Elephant_Orphanage_%2816735530794%29.jpg/1280px-A_Caretakers_Feeds_a_Baby_Elephant_at_the_Sheldrick_Elephant_Orphanage_%2816735530794%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:A_Caretakers_Feeds_a_Baby_Elephant_at_the_Sheldrick_Elephant_Orphanage_(16735530794).jpg",
+      "artist": "U.S. Department of State from United States",
+      "license": "Public domain",
+      "width": 4806,
+      "group": "attractions",
+      "query": "David Sheldrick Elephant Orphanage",
+      "file": "/images/attractions/david-sheldrick-elephant-orphanage.jpg",
+      "bytes": 383428
+    },
+    {
+      "title": "File:Fort Jesus, Mombasa, Skeletons in the museum.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Fort_Jesus%2C_Mombasa%2C_Skeletons_in_the_museum.jpg/1280px-Fort_Jesus%2C_Mombasa%2C_Skeletons_in_the_museum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Fort_Jesus,_Mombasa,_Skeletons_in_the_museum.jpg",
+      "artist": "Corneliusgathungu",
+      "license": "CC BY-SA 4.0",
+      "width": 4160,
+      "group": "attractions",
+      "query": "Fort Jesus Mombasa",
+      "file": "/images/attractions/fort-jesus-mombasa.jpg",
+      "bytes": 388641
+    },
+    {
+      "title": "File:Lake Naivasha Kenya 0111.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/da/Lake_Naivasha_Kenya_0111.jpg/1280px-Lake_Naivasha_Kenya_0111.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Lake_Naivasha_Kenya_0111.jpg",
+      "artist": "Letherian3",
+      "license": "CC BY-SA 4.0",
+      "width": 5712,
+      "group": "attractions",
+      "query": "Lake Naivasha",
+      "file": "/images/attractions/lake-naivasha.jpg",
+      "bytes": 218860
+    },
+    {
+      "title": "File:Puerto de Stone Town, Zanz\u00edbar, Tanzania, 2024-05-31, DD 03.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/Puerto_de_Stone_Town%2C_Zanz%C3%ADbar%2C_Tanzania%2C_2024-05-31%2C_DD_03.jpg/1280px-Puerto_de_Stone_Town%2C_Zanz%C3%ADbar%2C_Tanzania%2C_2024-05-31%2C_DD_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Puerto_de_Stone_Town,_Zanz%C3%ADbar,_Tanzania,_2024-05-31,_DD_03.jpg",
+      "artist": "Diego Delso",
+      "license": "CC BY-SA 4.0",
+      "width": 8688,
+      "group": "attractions",
+      "query": "Stone Town Zanzibar",
+      "file": "/images/attractions/stone-town-zanzibar.jpg",
+      "bytes": 109543
+    },
+    {
+      "title": "File:Lioness in landscape under setting sun, Maasai Mara, Kenya.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/61/Lioness_in_landscape_under_setting_sun%2C_Maasai_Mara%2C_Kenya.jpg/1920px-Lioness_in_landscape_under_setting_sun%2C_Maasai_Mara%2C_Kenya.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:Lioness_in_landscape_under_setting_sun,_Maasai_Mara,_Kenya.jpg",
+      "artist": "Daniel Case",
+      "license": "CC BY-SA 4.0",
+      "width": 7360,
+      "group": "hero",
+      "query": "Maasai Mara golden hour savannah",
+      "file": "/images/hero/maasai-mara-golden-hour-savannah.jpg",
+      "bytes": 654924
+    },
+    {
+      "title": "File:A bicyle delivery guy in diani kenya.jpg",
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/89/A_bicyle_delivery_guy_in_diani_kenya.jpg/1280px-A_bicyle_delivery_guy_in_diani_kenya.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "source": "https://commons.wikimedia.org/wiki/File:A_bicyle_delivery_guy_in_diani_kenya.jpg",
+      "artist": "Emmaculate jacobine",
+      "license": "CC BY-SA 4.0",
+      "width": 5760,
+      "group": "attractions",
+      "query": "Diani Beach aerial",
+      "file": "/images/attractions/diani-beach-aerial.jpg",
+      "bytes": 293104
+    }
+  ],
+  "failures": [
+    [
+      "hero",
+      "Maasai Mara golden hour savanna",
+      "no suitable file"
+    ]
+  ]
+}

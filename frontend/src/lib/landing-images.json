@@ -1,0 +1,134 @@
+{
+  "hero": [
+    {
+      "src": "/images/hero/savannah-sunset-acacia-africa.jpg",
+      "title": "The Savannah\u2019s Last Ember.jpg",
+      "artist": "Temptious",
+      "license": "CC0"
+    },
+    {
+      "src": "/images/hero/maasai-mara-golden-hour-savannah.jpg",
+      "title": "Lioness in landscape under setting sun, Maasai Mara, Kenya.jpg",
+      "artist": "Daniel Case",
+      "license": "CC BY-SA 4.0"
+    }
+  ],
+  "parks": [
+    {
+      "src": "/images/parks/maasai-mara-landscape.jpg",
+      "title": "Landscape of northern Maasai Mara Preserve, Kenya.jpg",
+      "artist": "Daniel Case",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/parks/amboseli-elephants-kilimanjaro.jpg",
+      "title": "Amboseli National Park and Mt. Kilimanjaro.jpg",
+      "artist": "Ninaras",
+      "license": "CC BY 4.0"
+    },
+    {
+      "src": "/images/parks/tsavo-east-landscape.jpg",
+      "title": "High ground - Flickr - Rob Oo.jpg",
+      "artist": "Rob Oo from NL",
+      "license": "CC BY 2.0"
+    },
+    {
+      "src": "/images/parks/tsavo-west-landscape.jpg",
+      "title": "Tsavo West National Park, Kenya, 2025.jpg",
+      "artist": "Richard Mortel",
+      "license": "CC BY 4.0"
+    },
+    {
+      "src": "/images/parks/samburu-reserve-landscape.jpg",
+      "title": "Samburu National Reserve landscape with pyramid mountain.jpg",
+      "artist": "Daniel Case",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/parks/lake-nakuru-flamingos.jpg",
+      "title": "Lake Nakuru National Park 03 - Lesser flamingo (Phoeniconaias minor).jpg",
+      "artist": "Thomas Fuhrmann",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/parks/nairobi-national-park-skyline.jpg",
+      "title": "Male maasai Ostrich facing the Nairobi Skyline from the Nairobi National park.jpg",
+      "artist": "Shadychiri",
+      "license": "CC BY 4.0"
+    },
+    {
+      "src": "/images/parks/serengeti-plains.jpg",
+      "title": "Serengeti-Landscape-2012.JPG",
+      "artist": "Bj\u00f8rn Christian T\u00f8rrissen",
+      "license": "CC BY-SA 3.0"
+    },
+    {
+      "src": "/images/parks/ngorongoro-crater.jpg",
+      "title": "Paisaje en la zona de conservaci\u00f3n de Ngorongoro, Tanzania, 2024-05-27, DD 57.jpg",
+      "artist": "Diego Delso",
+      "license": "CC BY-SA 4.0"
+    }
+  ],
+  "attractions": [
+    {
+      "src": "/images/attractions/great-migration-wildebeest-river-crossing.jpg",
+      "title": "Western white-bearded wildebeest (Connochaetes taurinus mearnsi) Mara River crossing 1b.jpg",
+      "artist": "Charles J. Sharp",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/attractions/lamu-old-town.jpg",
+      "title": "Lamu old town street.jpg",
+      "artist": "Mzein04",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/attractions/mount-kenya.jpg",
+      "title": "MOUNT KENYA IN THE MORNING 03.jpg",
+      "artist": "John Mynaar",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/attractions/hell-s-gate-national-park.jpg",
+      "title": "Hell's gate National park view 2022.jpg",
+      "artist": "Sir Reagan",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/attractions/giraffe-centre-nairobi.jpg",
+      "title": "Wikimania 2025 - Nairobi - ZI Jony - Photowalk at Giraffe Centre, 8 August 2025 (1).jpg",
+      "artist": "ZI Jony",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/attractions/david-sheldrick-elephant-orphanage.jpg",
+      "title": "A Caretakers Feeds a Baby Elephant at the Sheldrick Elephant Orphanage (16735530794).jpg",
+      "artist": "U.S. Department of State from United States",
+      "license": "Public domain"
+    },
+    {
+      "src": "/images/attractions/fort-jesus-mombasa.jpg",
+      "title": "Fort Jesus, Mombasa, Skeletons in the museum.jpg",
+      "artist": "Corneliusgathungu",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/attractions/lake-naivasha.jpg",
+      "title": "Lake Naivasha Kenya 0111.jpg",
+      "artist": "Letherian3",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/attractions/stone-town-zanzibar.jpg",
+      "title": "Puerto de Stone Town, Zanz\u00edbar, Tanzania, 2024-05-31, DD 03.jpg",
+      "artist": "Diego Delso",
+      "license": "CC BY-SA 4.0"
+    },
+    {
+      "src": "/images/attractions/diani-beach-aerial.jpg",
+      "title": "A bicyle delivery guy in diani kenya.jpg",
+      "artist": "Emmaculate jacobine",
+      "license": "CC BY-SA 4.0"
+    }
+  ]
+}

@@ -126,8 +126,25 @@ generated in `app/globals.css` as `[data-theme="…"]` blocks; every theme/mode 
 verified for WCAG AA contrast, and chart series read `--chart-1 … --chart-5`.
 `prefers-reduced-motion` and `prefers-contrast` are respected globally.
 
+## Landing page (Phase 3)
+
+`/(marketing)` renders the public site:
+
+- **Hero** (`components/landing/Hero.tsx`) — full-viewport React Three Fiber savannah
+  (low-poly ground, acacia silhouettes, low sun, drifting dust, pointer parallax,
+  DPR capped at 1.5, render loop paused off-screen). Falls back to the static
+  photograph when WebGL is unavailable or `prefers-reduced-motion` is set.
+- **Sections** (`components/landing/sections.tsx`) — trust bar with animated
+  counters, featured parks, attractions gallery, how-it-works timeline, AI
+  itinerary teaser, testimonials, pricing, FAQ accordion, CTA band, footer.
+  Scroll reveals use `motion` with a `useReducedMotion` guard.
+- **Images** — royalty-free files fetched from Wikimedia Commons into
+  `public/images/{hero,parks,attractions}/`; sources, authors and licences are
+  recorded in `public/images/CREDITS.md` (never hotlinked).
+- `/parks` and `/attractions` render the matching sections standalone.
+
 ## Roadmap (UI overhaul prompt)
 
-~~Phase 2 theming~~ done · Phase 3 3D landing page ·
-Phase 4 responsive system 320px→4K · Phase 5 smart charts/tables (TanStack Table) ·
+~~Phase 2 theming~~ done · ~~Phase 3 landing page~~ done · Phase 4 responsive system
+320px→4K · Phase 5 smart charts/tables (TanStack Table) ·
 Phase 6 motion · Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.
