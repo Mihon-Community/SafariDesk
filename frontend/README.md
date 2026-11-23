@@ -143,8 +143,30 @@ verified for WCAG AA contrast, and chart series read `--chart-1 … --chart-5`.
   recorded in `public/images/CREDITS.md` (never hotlinked).
 - `/parks` and `/attractions` render the matching sections standalone.
 
+## Responsive layout system (Phase 4)
+
+- **Breakpoints**: Tailwind defaults plus `3xl` (1920px) and `4xl` (2560px); the root font
+  scales to 18px/20px on large screens so a dashboard stays legible from a couch.
+- **App shell** (`components/AppShell.tsx`): sidebar that collapses to icons on `md`
+  (persisted in localStorage, hydrated after mount to avoid hydration mismatches), off-canvas
+  drawer with swipe-to-close on phones, sticky top bar with ⌘K command palette
+  (`components/CommandPalette.tsx`), notifications menu fed by `/api/alerts`, theme switcher
+  and user menu; a bottom tab bar covers the five most-used routes below `md`.
+- **Grids**: dashboard KPI cards go 1 → 2 (`sm`) → 4 (`lg`) → 6 (`3xl`); chart panels
+  1 → 2 → 3. Content is capped at 72rem except the dashboard, which widens at 3xl/4xl.
+- **Tables**: `.rtable` renders a sticky-header, horizontally scrolling table with a pinned
+  first column above `md`, and stacked labelled cards below it (used on Bookings, Payments,
+  BookingDetail, Rates and Feedback).
+- **Forms**: single column on phones, two columns from `sm`/`lg`, sticky action bar on mobile.
+- **Container queries**: card grids (parks, attractions) adapt to their slot via
+  `@min-[…]` container variants rather than the viewport.
+- **Touch/a11y**: 44px targets on coarse pointers, visible focus rings everywhere.
+
+Verified at 360×800, 390×844, 768×1024, 1280×800, 1440×900 and 1920×1080 with zero
+horizontal overflow; KPI rows measured 1 column at 360px and 6 at 1920px.
+
 ## Roadmap (UI overhaul prompt)
 
-~~Phase 2 theming~~ done · ~~Phase 3 landing page~~ done · Phase 4 responsive system
-320px→4K · Phase 5 smart charts/tables (TanStack Table) ·
+~~Phase 2 theming~~ done · ~~Phase 3 landing page~~ done · ~~Phase 4 responsive system~~ done ·
+Phase 5 smart charts/tables (TanStack Table + Python AI sidecar) ·
 Phase 6 motion · Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.

@@ -197,7 +197,7 @@ export default function NewBooking() {
       />
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_360px]">
           {/* Left: guest + trip */}
           <Card>
             <CardHeader className="p-4 pb-2">
@@ -379,7 +379,7 @@ export default function NewBooking() {
           </Card>
         </div>
 
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-col gap-2 border-t bg-background/95 p-4 shadow-sm backdrop-blur sm:static sm:mx-0 sm:flex-row sm:items-center sm:justify-end sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-none">
           <p className="mr-auto text-xs text-muted-foreground sm:mr-4">
             Submit stays disabled until a live quote exists.
           </p>

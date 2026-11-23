@@ -94,7 +94,8 @@ export default function Rates() {
           <TabsContent value="fees">
             <Card>
               <CardContent className="p-0">
-                <Table>
+                <div className="rtable-wrap">
+                  <Table className="rtable">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Park</TableHead>
@@ -108,15 +109,17 @@ export default function Rates() {
                   <TableBody>
                     {data.parkFees.map((f) => (
                       <TableRow key={f.id}>
-                        <TableCell>{f.parkName ?? `#${f.parkId}`}</TableCell>
-                        <TableCell>
+                        <TableCell data-label="Park">{f.parkName ?? `#${f.parkId}`}</TableCell>
+                        <TableCell data-label="Residency">
                           <Badge variant="outline">{f.residency.replace(/_/g, " ")}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">{formatMoney(f.perPersonPerDay)}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell data-label="Per person / day" className="text-right">
+                          {formatMoney(f.perPersonPerDay)}
+                        </TableCell>
+                        <TableCell data-label="Conservancy / day" className="text-right">
                           {formatMoney(f.conservancyPerPersonDay)}
                         </TableCell>
-                        <TableCell>{formatDate(f.effectiveFrom)}</TableCell>
+                        <TableCell data-label="Effective from">{formatDate(f.effectiveFrom)}</TableCell>
                         <TableCell className="text-right">
                           <Button size="icon" variant="ghost" onClick={() => setEditing({ entity: "parkFees", id: f.id })}>
                             <PencilLine className="h-4 w-4" />
@@ -125,7 +128,8 @@ export default function Rates() {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -133,7 +137,8 @@ export default function Rates() {
           <TabsContent value="seasons">
             <Card>
               <CardContent className="p-0">
-                <Table>
+                <div className="rtable-wrap">
+                  <Table className="rtable">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
@@ -146,10 +151,12 @@ export default function Rates() {
                   <TableBody>
                     {data.seasons.map((s) => (
                       <TableRow key={s.id}>
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell>{formatDate(s.startDate)}</TableCell>
-                        <TableCell>{formatDate(s.endDate)}</TableCell>
-                        <TableCell className="text-right">×{s.multiplier.toFixed(2)}</TableCell>
+                        <TableCell data-label="Name" className="font-medium">{s.name}</TableCell>
+                        <TableCell data-label="From">{formatDate(s.startDate)}</TableCell>
+                        <TableCell data-label="To">{formatDate(s.endDate)}</TableCell>
+                        <TableCell data-label="Multiplier" className="text-right">
+                          ×{s.multiplier.toFixed(2)}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button size="icon" variant="ghost" onClick={() => setEditing({ entity: "seasons", id: s.id })}>
                             <PencilLine className="h-4 w-4" />
@@ -158,7 +165,8 @@ export default function Rates() {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -166,7 +174,8 @@ export default function Rates() {
           <TabsContent value="vehicles">
             <Card>
               <CardContent className="p-0">
-                <Table>
+                <div className="rtable-wrap">
+                  <Table className="rtable">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Plate</TableHead>
@@ -179,10 +188,10 @@ export default function Rates() {
                   <TableBody>
                     {data.vehicles.map((v) => (
                       <TableRow key={v.id}>
-                        <TableCell className="font-medium">{v.plate}</TableCell>
-                        <TableCell className="text-right">{v.capacity}</TableCell>
-                        <TableCell className="text-right">{formatMoney(v.dayRate)}</TableCell>
-                        <TableCell>{formatDate(v.insuranceExpiry)}</TableCell>
+                        <TableCell data-label="Plate" className="font-medium">{v.plate}</TableCell>
+                        <TableCell data-label="Capacity" className="text-right">{v.capacity}</TableCell>
+                        <TableCell data-label="Day rate" className="text-right">{formatMoney(v.dayRate)}</TableCell>
+                        <TableCell data-label="Insurance expires">{formatDate(v.insuranceExpiry)}</TableCell>
                         <TableCell className="text-right">
                           <Button size="icon" variant="ghost" onClick={() => setEditing({ entity: "vehicles", id: v.id })}>
                             <PencilLine className="h-4 w-4" />
@@ -191,7 +200,8 @@ export default function Rates() {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -199,7 +209,8 @@ export default function Rates() {
           <TabsContent value="drivers">
             <Card>
               <CardContent className="p-0">
-                <Table>
+                <div className="rtable-wrap">
+                  <Table className="rtable">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
@@ -212,10 +223,10 @@ export default function Rates() {
                   <TableBody>
                     {data.drivers.map((d) => (
                       <TableRow key={d.id}>
-                        <TableCell className="font-medium">{d.name}</TableCell>
-                        <TableCell>{maskPhone(d.phone)}</TableCell>
-                        <TableCell className="text-right">{formatMoney(d.dayRate)}</TableCell>
-                        <TableCell>{formatDate(d.certExpiry)}</TableCell>
+                        <TableCell data-label="Name" className="font-medium">{d.name}</TableCell>
+                        <TableCell data-label="Phone">{maskPhone(d.phone)}</TableCell>
+                        <TableCell data-label="Day rate" className="text-right">{formatMoney(d.dayRate)}</TableCell>
+                        <TableCell data-label="Certificate expires">{formatDate(d.certExpiry)}</TableCell>
                         <TableCell className="text-right">
                           <Button size="icon" variant="ghost" onClick={() => setEditing({ entity: "drivers", id: d.id })}>
                             <PencilLine className="h-4 w-4" />
@@ -224,7 +235,8 @@ export default function Rates() {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -71,7 +71,7 @@ export default function Dashboard() {
       {data && (
         <>
           {/* Stat cards — each links to the filtered list it summarises */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 3xl:grid-cols-6">
             <Link href="/bookings">
               <Card className="h-full transition-colors hover:border-primary/50">
                 <CardHeader className="flex-row items-center justify-between space-y-0 p-4 pb-2">
@@ -157,7 +157,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Charts */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             <Card>
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Monthly bookings</CardTitle>

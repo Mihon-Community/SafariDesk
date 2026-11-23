@@ -358,7 +358,8 @@ export default function BookingDetail() {
             {b.payments.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No payments recorded yet.</p>
             ) : (
-              <Table>
+              <div className="rtable-wrap">
+                <Table className="rtable">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
@@ -370,24 +371,25 @@ export default function BookingDetail() {
                 <TableBody>
                   {b.payments.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell>{formatDateTime(p.createdAt)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell data-label="Date">{formatDateTime(p.createdAt)}</TableCell>
+                      <TableCell data-label="Amount" className="text-right">
                         <Money value={p.amount} plain />
                       </TableCell>
-                      <TableCell>
+                      <TableCell data-label="Status">
                         <span
                           className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${PAYMENT_CHIP[p.status]}`}
                         >
                           {p.status}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
+                      <TableCell data-label="Reference" className="text-xs text-muted-foreground">
                         {p.mpesaRef ?? p.providerRef ?? "—"}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

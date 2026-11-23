@@ -4,9 +4,10 @@ import { useEffect } from "react";
 
 /**
  * Browser-only MSW bootstrap. Loaded through next/dynamic with ssr:false so
- * Turbopack never resolves msw/browser for the server bundle.
+ * Turbopack never resolves msw/browser for the server bundle. Starts the
+ * service worker in the background; queries retry until it answers.
  */
-export default function MswStarter({ onReady }: { onReady: () => void }) {
+export default function MswStarter() {
   useEffect(() => {
     let cancelled = false;
     import("@/mocks/browser")
@@ -17,15 +18,12 @@ export default function MswStarter({ onReady }: { onReady: () => void }) {
         }),
       )
       .catch(() => {
-        // If MSW cannot start (no service-worker support), run unmocked.
-      })
-      .finally(() => {
-        if (!cancelled) onReady();
+        // No service-worker support: run unmocked.
       });
     return () => {
       cancelled = true;
     };
-  }, [onReady]);
+  }, []);
 
   return null;
 }

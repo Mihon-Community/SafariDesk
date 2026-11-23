@@ -9,6 +9,9 @@ export interface SessionUser {
 interface AuthState {
   token: string | null;
   user: SessionUser | null;
+  /** False until localStorage has been read; keeps SSR and first client render identical. */
+  hydrated: boolean;
+  hydrate: () => void;
   setSession: (token: string, user: SessionUser) => void;
   logout: () => void;
 }
@@ -17,7 +20,6 @@ const TOKEN_KEY = "sd_token";
 const USER_KEY = "sd_user";
 
 function readStoredUser(): SessionUser | null {
-  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(USER_KEY);
     return raw ? (JSON.parse(raw) as SessionUser) : null;
@@ -31,20 +33,21 @@ function readStoredUser(): SessionUser | null {
  * session and tiny UI state (sidebar), per the frontend guide.
  */
 export const useAuth = create<AuthState>((set) => ({
-  token: typeof window === "undefined" ? null : localStorage.getItem(TOKEN_KEY),
-  user: readStoredUser(),
+  token: null,
+  user: null,
+  hydrated: false,
+  hydrate: () => {
+    if (typeof window === "undefined") return;
+    set({ token: localStorage.getItem(TOKEN_KEY), user: readStoredUser(), hydrated: true });
+  },
   setSession: (token, user) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(TOKEN_KEY, token);
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
-    }
-    set({ token, user });
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    set({ token, user, hydrated: true });
   },
   logout: () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    }
-    set({ token: null, user: null });
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    set({ token: null, user: null, hydrated: true });
   },
 }));

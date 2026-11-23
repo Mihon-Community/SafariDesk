@@ -163,7 +163,8 @@ export default function Bookings() {
             </div>
           )}
           {data && data.length > 0 && (
-            <Table>
+            <div className="rtable-wrap">
+              <Table className="rtable">
               <TableHeader>
                 <TableRow>
                   <TableHead>Guest</TableHead>
@@ -178,7 +179,7 @@ export default function Bookings() {
               <TableBody>
                 {data.map((b) => (
                   <TableRow key={b.id}>
-                    <TableCell>
+                    <TableCell data-label="Guest">
                       <Link href={`/bookings/${b.id}`} className="block hover:underline">
                         <span className="font-medium">{b.guest?.name ?? `Guest #${b.guestId}`}</span>
                         <span className="block text-xs text-muted-foreground">
@@ -186,24 +187,25 @@ export default function Bookings() {
                         </span>
                       </Link>
                     </TableCell>
-                    <TableCell>{b.packageName ?? `#${b.packageId}`}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="Package">{b.packageName ?? `#${b.packageId}`}</TableCell>
+                    <TableCell data-label="Dates">
                       {formatDate(b.startDate)} – {formatDate(b.endDate)}
                     </TableCell>
-                    <TableCell className="text-right">{b.pax}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell data-label="Pax" className="text-right">{b.pax}</TableCell>
+                    <TableCell data-label="Total" className="text-right">
                       <Money value={b.total} plain />
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell data-label="Deposit due" className="text-right">
                       <Money value={b.depositDue} plain />
                     </TableCell>
-                    <TableCell>
+                    <TableCell data-label="Status">
                       <StatusBadge status={b.status} />
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

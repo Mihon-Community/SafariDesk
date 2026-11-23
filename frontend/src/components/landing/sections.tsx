@@ -102,7 +102,8 @@ export function ParksSection() {
           </p>
         </Reveal>
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="container-card mt-10">
+          <div className="grid grid-cols-1 gap-5 @min-[600px]:grid-cols-2 @min-[960px]:grid-cols-3">
           {PARKS.map((park, i) => (
             <Reveal key={park.name} delay={(i % 3) * 0.08}>
               <Card className="group overflow-hidden">
@@ -128,6 +129,7 @@ export function ParksSection() {
               </Card>
             </Reveal>
           ))}
+          </div>
         </div>
       </div>
     </section>
@@ -149,7 +151,8 @@ export function AttractionsSection() {
           </h2>
         </Reveal>
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="container-card mt-10">
+          <div className="grid grid-cols-1 gap-5 @min-[520px]:grid-cols-2 @min-[1024px]:grid-cols-4">
           {ATTRACTIONS.map((a, i) => (
             <Reveal key={a.name} delay={(i % 4) * 0.06}>
               <Card className="group relative min-h-[16rem] overflow-hidden">
@@ -169,6 +172,7 @@ export function AttractionsSection() {
               </Card>
             </Reveal>
           ))}
+          </div>
         </div>
       </div>
     </section>

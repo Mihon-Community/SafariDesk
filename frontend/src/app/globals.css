@@ -601,3 +601,128 @@ body {
     --muted-foreground: color-mix(in oklab, var(--foreground) 78%, var(--background));
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Phase 4 — responsive layout system (320px phones to 4K TVs)
+--------------------------------------------------------------------------- */
+
+@theme {
+  --breakpoint-3xl: 120rem; /* 1920px */
+  --breakpoint-4xl: 160rem; /* 2560px */
+}
+
+/* Scale the root so TV viewing at a distance stays legible. */
+@media (min-width: 120rem) {
+  html {
+    font-size: 18px;
+  }
+}
+@media (min-width: 160rem) {
+  html {
+    font-size: 20px;
+  }
+}
+
+/* Content stays readable; only the dashboard stretches wider. */
+.page-shell {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 72rem;
+}
+@media (min-width: 120rem) {
+  .page-shell-dashboard {
+    max-width: 96rem;
+  }
+}
+@media (min-width: 160rem) {
+  .page-shell-dashboard {
+    max-width: 120rem;
+  }
+}
+
+/*
+ * Responsive tables (.rtable):
+ *  - >= md: sticky header, horizontal scroll, pinned first column
+ *  - <  md: rows become stacked cards with field labels
+ */
+.rtable-wrap {
+  position: relative;
+  width: 100%;
+  overflow: auto;
+}
+.rtable {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.rtable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--card);
+}
+.rtable th:first-child,
+.rtable td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--card);
+}
+.rtable tbody tr:hover td {
+  background-color: color-mix(in oklab, var(--secondary) 60%, transparent);
+}
+.rtable tbody tr:hover td:first-child {
+  background-color: var(--card);
+}
+
+@media (max-width: 767px) {
+  .rtable thead {
+    display: none;
+  }
+  .rtable,
+  .rtable tbody,
+  .rtable tr,
+  .rtable td {
+    display: block;
+    width: 100%;
+  }
+  .rtable tr {
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background-color: var(--card);
+  }
+  .rtable td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.4rem 0;
+    border: 0;
+    white-space: normal;
+    text-align: right;
+  }
+  .rtable td::before {
+    content: attr(data-label);
+    font-weight: 500;
+    color: var(--muted-foreground);
+    text-align: left;
+  }
+  .rtable th:first-child,
+  .rtable td:first-child {
+    position: static;
+  }
+}
+
+/* Touch targets on coarse pointers: never below 44px. */
+@media (pointer: coarse) {
+  .touch-target {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
+/* Container queries: cards/charts adapt to their slot, not just the viewport. */
+@utility container-card {
+  container-type: inline-size;
+}

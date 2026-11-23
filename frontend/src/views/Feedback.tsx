@@ -138,7 +138,8 @@ export default function Feedback() {
                 </div>
               )}
               {feedbackQuery.data && feedbackQuery.data.length > 0 && (
-                <Table>
+              <div className="rtable-wrap">
+                <Table className="rtable">
                   <TableHeader>
                     <TableRow>
                       <TableHead>When</TableHead>
@@ -152,9 +153,11 @@ export default function Feedback() {
                   <TableBody>
                     {feedbackQuery.data.map((f) => (
                       <TableRow key={f.id}>
-                        <TableCell className="text-xs">{formatDateTime(f.createdAt)}</TableCell>
-                        <TableCell>{f.guestName ?? "—"}</TableCell>
-                        <TableCell>
+                        <TableCell data-label="When" className="text-xs">
+                          {formatDateTime(f.createdAt)}
+                        </TableCell>
+                        <TableCell data-label="Guest">{f.guestName ?? "—"}</TableCell>
+                        <TableCell data-label="Rating">
                           {f.rating != null ? (
                             <span className="inline-flex items-center gap-0.5 text-amber-600">
                               <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
@@ -165,13 +168,13 @@ export default function Feedback() {
                             "—"
                           )}
                         </TableCell>
-                        <TableCell className="max-w-[260px] truncate text-xs" title={f.comment ?? undefined}>
+                        <TableCell data-label="Comment" className="max-w-[260px] truncate text-xs" title={f.comment ?? undefined}>
                           {f.comment ?? "—"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell data-label="Sentiment">
                           {f.sentiment ? <Badge variant="secondary">{f.sentiment}</Badge> : "—"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell data-label="Booking">
                           <Link href={`/bookings/${f.bookingId}`} className="font-medium text-primary hover:underline">
                             #{f.bookingId}
                           </Link>
@@ -180,6 +183,7 @@ export default function Feedback() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
               )}
             </CardContent>
           </Card>

@@ -75,7 +75,8 @@ export default function Payments() {
                       />
                     </div>
                   ) : (
-                    <Table>
+                    <div className="rtable-wrap">
+                      <Table className="rtable">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Guest</TableHead>
@@ -92,7 +93,8 @@ export default function Payments() {
                           <PaymentRow key={r.id} row={r} showDue={key === "mismatched"} />
                         ))}
                       </TableBody>
-                    </Table>
+                      </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -107,20 +109,22 @@ export default function Payments() {
 function PaymentRow({ row, showDue }: { row: ReconciliationRow; showDue: boolean }) {
   return (
     <TableRow>
-      <TableCell>{row.guestName ?? "—"}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{maskPhone(row.phone)}</TableCell>
-      <TableCell className="text-right font-medium">
+      <TableCell data-label="Guest">{row.guestName ?? "—"}</TableCell>
+      <TableCell data-label="Phone" className="text-xs text-muted-foreground">
+        {maskPhone(row.phone)}
+      </TableCell>
+      <TableCell data-label="Amount" className="text-right font-medium">
         <Money value={row.amount} plain />
       </TableCell>
       {showDue && (
-        <TableCell className="text-right text-destructive">
+        <TableCell data-label="Deposit due" className="text-right text-destructive">
           <Money value={row.depositDue} plain />
         </TableCell>
       )}
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell data-label="M-Pesa ref" className="text-xs text-muted-foreground">
         {row.mpesaRef ?? row.providerRef ?? "—"}
       </TableCell>
-      <TableCell>
+      <TableCell data-label="Booking">
         {row.bookingId ? (
           <Link href={`/bookings/${row.bookingId}`} className="font-medium text-primary hover:underline">
             #{row.bookingId}
@@ -129,7 +133,7 @@ function PaymentRow({ row, showDue }: { row: ReconciliationRow; showDue: boolean
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell data-label="Status">
         <Badge
           variant={
             row.status === "SUCCESS"
