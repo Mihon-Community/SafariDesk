@@ -68,6 +68,11 @@ const signUpSchema = z.object({
   name: z.string().min(2).max(80),
   email: z.email().max(160),
   password: z.string().min(8).max(128),
+  requestedRole: z.string().max(20).optional().default("customer"),
+  phone: z.string().max(24).optional(),
+  licenceNumber: z.string().max(40).optional(),
+  vehicleReg: z.string().max(24).optional(),
+  company: z.string().max(120).optional(),
 });
 
 const signInSchema = z.object({
@@ -107,8 +112,21 @@ export function authRouter(service: AuthService, adminGuard: (req: Request) => P
     "/sign-up",
     wrap(async (req, res) => {
       const body = signUpSchema.parse(req.body);
-      const user = await service.signUp(body, contextFrom(req));
-      res.status(201).json({ user });
+      const result = await service.signUp(
+        { ...body, requestedRole: body.requestedRole as Role },
+        contextFrom(req),
+      );
+      if (result.tokens) {
+        const refreshMaxAge = Number(process.env.REFRESH_TTL_SECONDS ?? 30 * 24 * 60 * 60);
+        res.cookie(ACCESS_COOKIE, result.tokens.accessToken, cookieOptions(req));
+        res.cookie(REFRESH_COOKIE, result.tokens.refreshToken, {
+          ...cookieOptions(req),
+          path: "/api/auth",
+          maxAge: refreshMaxAge * 1000,
+        });
+        setRoleCookie(res, result.user.role);
+      }
+      res.status(201).json({ user: result.user, pending: result.pending ?? false });
     }),
   );
 

@@ -19,7 +19,7 @@ export function createApp(
   service?: AuthService,
 ): { app: Express; service: AuthService } {
   const authService = service ?? new AuthService(repo);
-  const usersService = new UsersService(repo);
+  const usersService = new UsersService(repo, (event) => authService.notify(event));
   const app = express();
 
   app.disable("x-powered-by");

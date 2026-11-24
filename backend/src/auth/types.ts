@@ -11,7 +11,7 @@ export const ROLES = [
 ] as const;
 export type Role = (typeof ROLES)[number];
 
-export const USER_STATUSES = ["active", "invited", "disabled"] as const;
+export const USER_STATUSES = ["active", "invited", "pending", "disabled"] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
 export interface UserRecord {
@@ -21,6 +21,8 @@ export interface UserRecord {
   passwordHash: string | null;
   role: Role;
   status: UserStatus;
+  /** Staff role requested at self-signup; granted by an admin approving the request. */
+  requestedRole?: Role | null;
   failedAttempts: number;
   lockedUntil: Date | null;
   lastLoginAt: Date | null;

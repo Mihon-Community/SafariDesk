@@ -8,7 +8,7 @@ import { contextFrom } from "./auth";
 
 const updateSchema = z.object({
   role: z.enum(["super_admin", "admin", "operations", "dispatcher", "finance", "agent", "driver", "customer"]).optional(),
-  status: z.enum(["active", "invited", "disabled"]).optional(),
+  status: z.enum(["active", "invited", "pending", "disabled"]).optional(),
 });
 
 function wrap(handler: (req: Request, res: Response) => Promise<void>) {
@@ -58,6 +58,38 @@ export function usersRouter(
       if (!req.user) throw new AuthError(401, "UNAUTHENTICATED", "Sign in required.");
       const result = await service.requestPasswordReset(req.user.id, String(req.params["id"]), contextFrom(req));
       res.json(result);
+    }),
+  );
+
+  /** Pending staff-role requests awaiting an admin decision. */
+  router.get(
+    "/pending",
+    authGuard,
+    readGuard,
+    wrap(async (_req, res) => {
+      res.json({ users: await service.listPending() });
+    }),
+  );
+
+  router.post(
+    "/:id/approve",
+    authGuard,
+    manageGuard,
+    wrap(async (req, res) => {
+      if (!req.user) throw new AuthError(401, "UNAUTHENTICATED", "Sign in required.");
+      const user = await service.approveRequest(req.user.id, String(req.params["id"]), contextFrom(req));
+      res.json({ user });
+    }),
+  );
+
+  router.post(
+    "/:id/reject",
+    authGuard,
+    manageGuard,
+    wrap(async (req, res) => {
+      if (!req.user) throw new AuthError(401, "UNAUTHENTICATED", "Sign in required.");
+      const user = await service.rejectRequest(req.user.id, String(req.params["id"]), contextFrom(req));
+      res.json({ user });
     }),
   );
 

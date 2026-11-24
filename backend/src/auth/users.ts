@@ -13,6 +13,7 @@ export interface PublicUserRecord {
   email: string;
   role: Role;
   status: UserStatus;
+  requestedRole?: Role | null;
   lastLoginAt: Date | null;
   createdAt: Date;
 }
@@ -24,6 +25,7 @@ function toPublic(user: UserRecord): PublicUserRecord {
     email: user.email,
     role: user.role,
     status: user.status,
+    requestedRole: user.requestedRole ?? null,
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
   };
@@ -74,7 +76,7 @@ export class UsersService {
         throw new AuthError(403, "SUPER_ADMIN_REQUIRED", "Only a super admin can grant that role.");
       }
     }
-    if (patch.status && !["active", "invited", "disabled"].includes(patch.status)) {
+    if (patch.status && !["active", "invited", "pending", "disabled"].includes(patch.status)) {
       throw new AuthError(400, "BAD_STATUS", "Unknown status.");
     }
 
@@ -118,5 +120,64 @@ export class UsersService {
     this.delivery({ kind: "password_reset", email: target.email, token: raw, expiresAt });
     await this.repo.audit({ userId: actorId, event: "users.password_reset", ...ctx, metadata: { targetId } });
     return { ok: true };
+  }
+
+  /** Accounts that requested a staff role and are waiting for an admin decision. */
+  async listPending(): Promise<PublicUserRecord[]> {
+    return (await this.repo.listUsers())
+      .filter((u) => u.status === "pending")
+      .map(toPublic);
+  }
+
+  /** Approve a pending request: grant the requested role, activate, notify. */
+  async approveRequest(
+    actorId: string,
+    targetId: string,
+    ctx: { ip: string | null; userAgent: string | null },
+  ): Promise<PublicUserRecord> {
+    const actor = await this.repo.findUserById(actorId);
+    if (!actor || !["admin", "super_admin"].includes(actor.role)) {
+      throw new AuthError(403, "FORBIDDEN", "Admin role required.");
+    }
+    const target = await this.repo.findUserById(targetId);
+    if (!target || target.status !== "pending" || !target.requestedRole) {
+      throw new AuthError(400, "INVALID_REQUEST", "That account has no pending request.");
+    }
+    const updated = await this.repo.updateUser(targetId, {
+      role: target.requestedRole,
+      status: "active",
+      requestedRole: null,
+    });
+    this.delivery({ kind: "request_approved", email: target.email, role: target.requestedRole });
+    await this.repo.audit({
+      userId: actorId,
+      event: "users.request_approved",
+      ...ctx,
+      metadata: { targetId, role: target.requestedRole },
+    });
+    logger.info({ actorId, targetId, role: target.requestedRole }, "access request approved");
+    return toPublic(updated);
+  }
+
+  /** Reject a pending request: disable the account, revoke sessions, notify. */
+  async rejectRequest(
+    actorId: string,
+    targetId: string,
+    ctx: { ip: string | null; userAgent: string | null },
+  ): Promise<PublicUserRecord> {
+    const actor = await this.repo.findUserById(actorId);
+    if (!actor || !["admin", "super_admin"].includes(actor.role)) {
+      throw new AuthError(403, "FORBIDDEN", "Admin role required.");
+    }
+    const target = await this.repo.findUserById(targetId);
+    if (!target || target.status !== "pending") {
+      throw new AuthError(400, "INVALID_REQUEST", "That account has no pending request.");
+    }
+    await this.repo.revokeAllUserSessions(targetId);
+    const updated = await this.repo.updateUser(targetId, { status: "disabled", requestedRole: null });
+    this.delivery({ kind: "request_rejected", email: target.email });
+    await this.repo.audit({ userId: actorId, event: "users.request_rejected", ...ctx, metadata: { targetId } });
+    logger.info({ actorId, targetId }, "access request rejected");
+    return toPublic(updated);
   }
 }

@@ -789,12 +789,12 @@ body {
 }
 @media (min-width: 120rem) {
   .page-shell-dashboard {
-    max-width: 96rem;
+    max-width: 110rem;
   }
 }
 @media (min-width: 160rem) {
   .page-shell-dashboard {
-    max-width: 120rem;
+    max-width: 140rem;
   }
 }
 

@@ -112,7 +112,7 @@ export default function Dashboard() {
       {data && (
         <>
           {/* KPI cards — value, delta, sparkline, tooltip */}
-          <Stagger className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 3xl:grid-cols-6">
+          <Stagger className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4 3xl:grid-cols-6">
             <StaggerItem>
               <KpiCard
                 title="Total bookings"
@@ -162,7 +162,7 @@ export default function Dashboard() {
 
           {/* Revenue + status */}
 <Can permission={["bookings:read", "payments:read"]} any>
-          <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+          <div className="stagger-motion grid items-start gap-4 lg:grid-cols-2 3xl:grid-cols-3 4xl:grid-cols-4">
             <Card className="3xl:col-span-2">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Revenue</CardTitle>
@@ -196,7 +196,7 @@ export default function Dashboard() {
 
           {/* Demand forecast + park mix + occupancy */}
 <Can permission={["reports:read", "bookings:read", "dispatch:read"]} any>
-          <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+          <div className="stagger-motion grid items-start gap-4 lg:grid-cols-2 3xl:grid-cols-3 4xl:grid-cols-4">
             <Card>
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Demand forecast</CardTitle>
@@ -240,7 +240,7 @@ export default function Dashboard() {
 
           {/* Payments + drivers + departures */}
 <Can permission={["payments:read", "dispatch:read", "drivers:read", "bookings:read"]} any>
-          <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+          <div className="stagger-motion grid items-start gap-4 lg:grid-cols-2 3xl:grid-cols-3 4xl:grid-cols-4">
             <Card>
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Payments by method</CardTitle>

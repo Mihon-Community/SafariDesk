@@ -24,6 +24,7 @@ export interface PublicUser {
   email: string;
   role: Role;
   status: UserRecord["status"];
+  requestedRole?: Role | null;
   lastLoginAt: Date | null;
 }
 
@@ -34,6 +35,7 @@ export function toPublicUser(user: UserRecord): PublicUser {
     email: user.email,
     role: user.role,
     status: user.status,
+    requestedRole: user.requestedRole ?? null,
     lastLoginAt: user.lastLoginAt,
   };
 }
@@ -59,9 +61,17 @@ const STAFF_ROLES: Role[] = [
   "driver",
 ];
 
+/** Roles an admin may be offered at self-signup (never admin/super_admin). */
+export const REQUESTABLE_ROLES: Role[] = ["customer", "driver", "agent", "operations", "finance"];
+
+/** Roles that must wait for admin approval. */
+const PENDING_ROLES: Role[] = ["driver", "agent", "operations", "finance"];
+
 export type DeliveryEvent =
   | { kind: "password_reset"; email: string; token: string; expiresAt: Date }
-  | { kind: "invite"; email: string; role: Role; token: string; expiresAt: Date };
+  | { kind: "invite"; email: string; role: Role; token: string; expiresAt: Date }
+  | { kind: "request_approved"; email: string; role: Role }
+  | { kind: "request_rejected"; email: string };
 
 export class AuthService {
   private delivery: (event: DeliveryEvent) => void;
@@ -75,22 +85,103 @@ export class AuthService {
     this.delivery = delivery ?? ((event) => logger.info({ kind: event.kind, email: event.email }, "auth delivery"));
   }
 
-  async signUp(input: { name: string; email: string; password: string }, ctx: RequestContext): Promise<PublicUser> {
+  /** Shared delivery hook so admin actions (users service) notify too. */
+  notify(event: DeliveryEvent): void {
+    this.delivery(event);
+  }
+
+  /**
+   * Public self-signup with a requested role.
+   * - customer: active immediately, signed in (tokens returned).
+   * - driver/agent/operations/finance: account kept as a pending `customer`,
+   *   `requested_role` stored for an admin to approve or reject; no staff access.
+   * - admin/super_admin can never be requested here.
+   */
+  async signUp(
+    input: {
+      name: string;
+      email: string;
+      password: string;
+      requestedRole?: Role | null;
+      company?: string | null | undefined;
+      phone?: string | null | undefined;
+      licenceNumber?: string | null | undefined;
+      vehicleReg?: string | null | undefined;
+    },
+    ctx: RequestContext,
+  ): Promise<{ user: PublicUser; tokens?: IssuedTokens; pending?: boolean }> {
+    const requested = input.requestedRole ?? "customer";
+    if (requested === "admin" || requested === "super_admin") {
+      throw new AuthError(403, "FORBIDDEN_ROLE", "That role cannot be requested at sign-up.");
+    }
+    if (!REQUESTABLE_ROLES.includes(requested)) {
+      throw new AuthError(400, "VALIDATION", "Choose a valid role.");
+    }
+
     const existing = await this.repo.findUserByEmail(input.email);
     if (existing) throw new AuthError(409, "EMAIL_TAKEN", "An account already exists for that email.");
 
+    const needsApproval = PENDING_ROLES.includes(requested);
     const user = await this.repo.createUser({
       id: id("usr"),
       name: input.name,
       email: input.email.toLowerCase(),
       passwordHash: await hashPassword(input.password),
-      // Public self-signup is always a customer; staff arrive via invite.
-      role: "customer",
-      status: "active",
+      // Pending requesters hold the lowest role until an admin approves them.
+      role: needsApproval ? "customer" : requested,
+      status: needsApproval ? "pending" : "active",
+      requestedRole: needsApproval ? requested : null,
     });
-    await this.repo.audit({ userId: user.id, event: "auth.sign_up", ...ctx, metadata: { role: user.role } });
-    logger.info({ userId: user.id, event: "auth.sign_up" }, "sign-up complete");
-    return toPublicUser(user);
+    await this.repo.audit({
+      userId: user.id,
+      event: needsApproval ? "auth.access_requested" : "auth.sign_up",
+      ...ctx,
+      metadata: { requestedRole: requested },
+    });
+    logger.info({ userId: user.id, requestedRole: requested }, needsApproval ? "access requested" : "sign-up complete");
+
+    if (needsApproval) return { user: toPublicUser(user), pending: true };
+    const tokens = await this.issueSession(user, ctx);
+    return { user: toPublicUser(user), tokens, pending: false };
+  }
+
+  /** Users waiting for an admin decision on a staff role. */
+  async listPending(): Promise<PublicUser[]> {
+    return (await this.repo.listUsers())
+      .filter((u) => u.status === "pending")
+      .map(toPublicUser);
+  }
+
+  /** Grant the requested staff role. */
+  async approveRequest(userId: string, actorId: string, ctx: RequestContext): Promise<PublicUser> {
+    const user = await this.repo.findUserById(userId);
+    if (!user || user.status !== "pending" || !user.requestedRole) {
+      throw new AuthError(400, "INVALID_REQUEST", "That account has no pending request.");
+    }
+    const approved = await this.repo.updateUser(userId, {
+      role: user.requestedRole,
+      status: "active",
+      requestedRole: null,
+    });
+    await this.repo.audit({ userId, event: "auth.request_approved", ...ctx, metadata: { actorId, role: user.requestedRole } });
+    this.delivery({ kind: "request_approved", email: user.email, role: user.requestedRole });
+    return toPublicUser(approved);
+  }
+
+  /** Reject a pending staff request: account disabled. */
+  async rejectRequest(userId: string, actorId: string, ctx: RequestContext): Promise<PublicUser> {
+    const user = await this.repo.findUserById(userId);
+    if (!user || user.status !== "pending") {
+      throw new AuthError(400, "INVALID_REQUEST", "That account has no pending request.");
+    }
+    const rejected = await this.repo.updateUser(userId, {
+      status: "disabled",
+      requestedRole: null,
+    });
+    await this.repo.revokeAllUserSessions(userId);
+    await this.repo.audit({ userId, event: "auth.request_rejected", ...ctx, metadata: { actorId } });
+    this.delivery({ kind: "request_rejected", email: user.email });
+    return toPublicUser(rejected);
   }
 
   async signIn(input: { email: string; password: string }, ctx: RequestContext): Promise<{ user: PublicUser } & IssuedTokens> {
@@ -119,6 +210,12 @@ export class AuthService {
         throw new AuthError(423, "LOCKED", "Too many failed attempts. Try again later.");
       }
       throw new AuthError(401, "BAD_CREDENTIALS", "Invalid email or password.");
+    }
+
+    // Staff-role requesters stay unapproved until an admin grants access.
+    if (user.status === "pending") {
+      await this.repo.audit({ userId: user.id, event: "auth.sign_in_blocked", ...ctx, metadata: { reason: "pending_approval" } });
+      throw new AuthError(403, "PENDING_APPROVAL", "Your access request is awaiting admin approval.");
     }
 
     await this.repo.updateUser(user.id, {
