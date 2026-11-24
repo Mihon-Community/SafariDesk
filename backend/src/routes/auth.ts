@@ -10,6 +10,8 @@ import { logger } from "../logger";
 
 export const ACCESS_COOKIE = "sd_access";
 export const REFRESH_COOKIE = "sd_refresh";
+/** Non-sensitive role hint for the frontend proxy (UX guard only). */
+export const ROLE_COOKIE = "sd_role";
 
 const credentials = {
   httpOnly: true,
@@ -26,6 +28,16 @@ function parseCookies(header: string | undefined): Record<string, string> {
     out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
   }
   return out;
+}
+
+function setRoleCookie(res: Response, role: Role) {
+  res.cookie(ROLE_COOKIE, role, {
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.COOKIE_SECURE === "true",
+    path: "/",
+    maxAge: Number(process.env.REFRESH_TTL_SECONDS ?? 30 * 24 * 60 * 60) * 1000,
+  });
 }
 
 export function contextFrom(req: Request) {
@@ -112,6 +124,7 @@ export function authRouter(service: AuthService, adminGuard: (req: Request) => P
         path: "/api/auth",
         maxAge: refreshMaxAge * 1000,
       });
+      setRoleCookie(res, result.user.role);
       res.json({ user: result.user, expiresAt: result.expiresAt.toISOString() });
     }),
   );
@@ -129,6 +142,7 @@ export function authRouter(service: AuthService, adminGuard: (req: Request) => P
         path: "/api/auth",
         maxAge: refreshMaxAge * 1000,
       });
+      setRoleCookie(res, result.user.role);
       res.json({ user: result.user, expiresAt: result.expiresAt.toISOString() });
     }),
   );
@@ -150,6 +164,7 @@ export function authRouter(service: AuthService, adminGuard: (req: Request) => P
       await service.signOut(refresh, userId, contextFrom(req));
       res.clearCookie(ACCESS_COOKIE, { ...cookieOptions(req), maxAge: undefined });
       res.clearCookie(REFRESH_COOKIE, { ...cookieOptions(req), path: "/api/auth", maxAge: undefined });
+      res.clearCookie(ROLE_COOKIE, { path: "/", maxAge: undefined });
       res.json({ ok: true });
     }),
   );

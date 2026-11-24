@@ -7,7 +7,7 @@ operators. This guide supersedes the PDF version.
 
 ```
 frontend/
-├─ proxy.ts                 # route guards (Phase 7): redirects for auth/operator routes
+├─ src/proxy.ts          # route guards: auth redirects + role-aware UX guard (`sd_role`)
 ├─ next.config.ts           # turbopack root + msw alias; BACKEND_URL rewrite
 ├─ public/images/           # hero/parks/attractions imagery + CREDITS.md
 └─ src/
