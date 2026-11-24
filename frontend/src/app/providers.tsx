@@ -36,7 +36,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       {mocksOn && <MswStarter />}
       {children}
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{ className: "toast-slide" }}
+      />
     </QueryClientProvider>
   );
 }

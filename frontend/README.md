@@ -186,8 +186,28 @@ horizontal overflow; KPI rows measured 1 column at 360px and 6 at 1920px.
   pagination and a persisted view (`localStorage:datatable:<id>`). Bookings uses it on
   `md+` and the stacked-card table below.
 
+## Animation and motion (Phase 6)
+
+- **Page transitions**: `components/motion/RouteTransition.tsx` wraps the `(app)`
+  page content in `motion` + `AnimatePresence` — 180ms fade/slide on enter, short
+  fade on exit, shell stays mounted. Default mode is used deliberately:
+  `mode="popLayout"` reparents the outgoing page and broke client rendering of
+  data-heavy routes.
+- **Staggered reveals**: `components/motion/Stagger.tsx` (JS variants) for KPI
+  cards and a `.stagger-motion > *` CSS stagger for chart grids; both run once on
+  first load and animate only `transform`/`opacity`.
+- **Micro-interactions**: buttons scale to 97% on press (`motion-safe:active:scale`),
+  sonner toasts slide in via `.toast-slide`, sidebar width/padding tween 200ms,
+  mobile drawer slides in with a backdrop fade, and theme/palette changes crossfade
+  through a temporary `.theme-crossfade` class applied by `ThemeProvider`
+  (mutation observer compares values so it cannot loop).
+- **Reduced motion**: every animation above is gated — JS components use
+  `useReducedMotion()` from `motion/react`; CSS uses `@media
+  (prefers-reduced-motion: no-preference)` / `motion-safe:` / `motion-reduce:`.
+  Verified with emulated reduce: KPIs/charts render instantly, `animation-name: none`.
+
 ## Roadmap (UI overhaul prompt)
 
 ~~Phase 2 theming~~ done · ~~Phase 3 landing page~~ done · ~~Phase 4 responsive system~~ done ·
-~~Phase 5 cards/charts/tables + Python AI sidecar~~ done ·
-Phase 6 motion · Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.
+~~Phase 5 cards/charts/tables + Python AI sidecar~~ done · ~~Phase 6 animation and motion~~ done ·
+Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.

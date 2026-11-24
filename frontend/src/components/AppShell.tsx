@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   BellRing,
   CalendarRange,
@@ -229,6 +230,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const user = useAuth((s) => s.user);
   const router = useRouter();
   const pathname = usePathname();
+  const reduceMotion = useReducedMotion();
 
   // Live updates are active anywhere inside the authenticated shell.
   useRealtime();
@@ -252,7 +254,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Desktop sidebar (collapses to icons) */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden flex-col bg-brand transition-[width] duration-200 md:flex",
+          "fixed inset-y-0 left-0 z-30 hidden flex-col bg-brand transition-[width] duration-200 motion-reduce:transition-none md:flex",
           collapsed ? "w-16" : "w-64",
         )}
       >
@@ -332,51 +334,68 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* Mobile drawer: tap the backdrop or swipe right to close */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 md:hidden"
-          onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
-          onTouchEnd={(e) => {
-            if (touchStart !== null && e.changedTouches[0].clientX - touchStart > 60) {
-              setMobileOpen(false);
-            }
-            setTouchStart(null);
-          }}
-        >
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-brand">
-            <div className="flex items-center justify-between px-5 py-5">
-              <p className="text-base font-semibold text-brand-foreground">SafariDesk</p>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMobileOpen(false)}
-                className="text-brand-foreground/70 hover:bg-brand-foreground/10 hover:text-brand-foreground"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            <NavItems collapsed={false} onNavigate={() => setMobileOpen(false)} />
-            <div className="mt-auto space-y-3 border-t border-brand-foreground/10 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm text-brand-foreground/80">{user?.email ?? "Admin"}</p>
-                <ThemeMenu />
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            className="fixed inset-0 z-40 md:hidden"
+            initial={reduceMotion ? undefined : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
+            onTouchEnd={(e) => {
+              if (touchStart !== null && e.changedTouches[0].clientX - touchStart > 60) {
+                setMobileOpen(false);
+              }
+              setTouchStart(null);
+            }}
+          >
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.div
+              className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-brand"
+              initial={reduceMotion ? undefined : { x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <div className="flex items-center justify-between px-5 py-5">
+                <p className="text-base font-semibold text-brand-foreground">SafariDesk</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileOpen(false)}
+                  className="text-brand-foreground/70 hover:bg-brand-foreground/10 hover:text-brand-foreground"
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-brand-foreground/30 bg-transparent text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
-                onClick={handleLogout}
-              >
-                Sign out
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+              <NavItems collapsed={false} onNavigate={() => setMobileOpen(false)} />
+              <div className="mt-auto space-y-3 border-t border-brand-foreground/10 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm text-brand-foreground/80">
+                    {user?.email ?? "Admin"}
+                  </p>
+                  <ThemeMenu />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-brand-foreground/30 bg-transparent text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
+                  onClick={handleLogout}
+                >
+                  Sign out
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <main className={cn("transition-[padding] duration-200", collapsed ? "md:pl-16" : "md:pl-64")}>
+      <main className={cn("transition-[padding] duration-200 motion-reduce:transition-none", collapsed ? "md:pl-16" : "md:pl-64")}>
         <div
           className={cn(
             "page-shell px-4 py-4 sm:px-6 sm:py-6 lg:py-8",

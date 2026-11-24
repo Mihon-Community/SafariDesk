@@ -1,4 +1,5 @@
 import { AppShell, RequireAuth } from "@/components/AppShell";
+import { RouteTransition } from "@/components/motion/RouteTransition";
 
 /**
  * Authenticated routes always render per request: their data comes from the
@@ -12,7 +13,10 @@ export default function AppGroupLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <RequireAuth>
-      <AppShell>{children}</AppShell>
+      <AppShell>
+        {/* Page-level fade/slide; the shell itself stays mounted. */}
+        <RouteTransition>{children}</RouteTransition>
+      </AppShell>
     </RequireAuth>
   );
 }

@@ -20,6 +20,7 @@ import { Money } from "@/components/Money";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CardsSkeleton, ErrorState } from "@/components/States";
 import { KpiCard } from "@/components/KpiCard";
+import { Stagger, StaggerItem } from "@/components/motion/Stagger";
 import { RevenueRangeChart } from "@/components/charts/RevenueRangeChart";
 import { ForecastChart } from "@/components/charts/ForecastChart";
 import {
@@ -96,48 +97,56 @@ export default function Dashboard() {
       {data && (
         <>
           {/* KPI cards — value, delta, sparkline, tooltip */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 3xl:grid-cols-6">
-            <KpiCard
-              title="Total bookings"
-              hint="All bookings across every status."
-              value={totalBookings}
-              icon={ClipboardList}
-              href="/bookings"
-              delta={deltas.bookings}
-              deltaLabel="vs prior 30 days"
-              spark={spark.bookings}
-            />
-            <KpiCard
-              title="Revenue collected"
-              hint="Deposits received, excluding balances due."
-              value={data.revenuePaid}
-              format="money"
-              icon={CircleDollarSign}
-              href="/payments"
-              delta={deltas.revenue}
-              deltaLabel="vs prior 30 days"
-              spark={spark.revenue}
-            />
-            <KpiCard
-              title="Departing in 7 days"
-              hint="Confirmed trips starting this week."
-              value={data.departing7Days.length}
-              icon={CalendarRange}
-              href="/bookings?status=CONFIRMED"
-              deltaLabel="confirmed trips"
-            />
-            <KpiCard
-              title="Unallocated trips"
-              hint="Trips with no driver assigned yet."
-              value={data.unallocated}
-              icon={Truck}
-              href="/dispatch"
-              deltaLabel="need a driver"
-            />
-          </div>
+          <Stagger className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 3xl:grid-cols-6">
+            <StaggerItem>
+              <KpiCard
+                title="Total bookings"
+                hint="All bookings across every status."
+                value={totalBookings}
+                icon={ClipboardList}
+                href="/bookings"
+                delta={deltas.bookings}
+                deltaLabel="vs prior 30 days"
+                spark={spark.bookings}
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <KpiCard
+                title="Revenue collected"
+                hint="Deposits received, excluding balances due."
+                value={data.revenuePaid}
+                format="money"
+                icon={CircleDollarSign}
+                href="/payments"
+                delta={deltas.revenue}
+                deltaLabel="vs prior 30 days"
+                spark={spark.revenue}
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <KpiCard
+                title="Departing in 7 days"
+                hint="Confirmed trips starting this week."
+                value={data.departing7Days.length}
+                icon={CalendarRange}
+                href="/bookings?status=CONFIRMED"
+                deltaLabel="confirmed trips"
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <KpiCard
+                title="Unallocated trips"
+                hint="Trips with no driver assigned yet."
+                value={data.unallocated}
+                icon={Truck}
+                href="/dispatch"
+                deltaLabel="need a driver"
+              />
+            </StaggerItem>
+          </Stagger>
 
           {/* Revenue + status */}
-          <div className="grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+          <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             <Card className="3xl:col-span-2">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Revenue</CardTitle>
@@ -169,7 +178,7 @@ export default function Dashboard() {
           </div>
 
           {/* Demand forecast + park mix + occupancy */}
-          <div className="grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+          <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             <Card>
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Demand forecast</CardTitle>
@@ -211,7 +220,7 @@ export default function Dashboard() {
           </div>
 
           {/* Payments + drivers + departures */}
-          <div className="grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+          <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             <Card>
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Payments by method</CardTitle>

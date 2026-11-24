@@ -726,3 +726,72 @@ body {
 @utility container-card {
   container-type: inline-size;
 }
+
+/* ------------------------------ Phase 6 motion ----------------------------- */
+
+/* Toast slide-in (transform + opacity only). */
+@media (prefers-reduced-motion: no-preference) {
+  [data-sonner-toaster] [data-sonner-toast].toast-slide {
+    animation: toast-in 200ms ease-out;
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Theme crossfade: applied for ~250ms while the class/palette attribute changes. */
+@media (prefers-reduced-motion: no-preference) {
+  .theme-crossfade,
+  .theme-crossfade body,
+  .theme-crossfade .bg-background,
+  .theme-crossfade .bg-card,
+  .theme-crossfade .bg-muted,
+  .theme-crossfade .bg-secondary,
+  .theme-crossfade .bg-brand,
+  .theme-crossfade .border-border {
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease;
+  }
+}
+
+/* Route/list motion must never be the only carrier of information. */
+@media (prefers-reduced-motion: reduce) {
+  .route-motion,
+  .stagger-motion {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Grid/list stagger: short rise, transform + opacity only, first load only. */
+@media (prefers-reduced-motion: no-preference) {
+  .stagger-motion > * {
+    animation: rise 320ms ease-out both;
+  }
+  .stagger-motion > *:nth-child(1) { animation-delay: 40ms; }
+  .stagger-motion > *:nth-child(2) { animation-delay: 100ms; }
+  .stagger-motion > *:nth-child(3) { animation-delay: 160ms; }
+  .stagger-motion > *:nth-child(4) { animation-delay: 220ms; }
+  .stagger-motion > *:nth-child(5) { animation-delay: 280ms; }
+  .stagger-motion > *:nth-child(6) { animation-delay: 340ms; }
+  .stagger-motion > *:nth-child(7) { animation-delay: 400ms; }
+  .stagger-motion > *:nth-child(8) { animation-delay: 460ms; }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
