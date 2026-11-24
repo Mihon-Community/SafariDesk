@@ -426,63 +426,324 @@ function json(data: unknown, init?: ResponseInit) {
   return HttpResponse.json(data as never, init);
 }
 
+/* --------------------------- mock auth session --------------------------- */
+
+interface MockAuthUser {
+  id: number;
+  name: string;
+  email: string;
+  password: string;
+  role: "super_admin" | "admin" | "operations" | "finance" | "agent" | "driver" | "customer";
+  status: "active" | "invited" | "pending" | "disabled";
+  requestedRole?: MockAuthUser["role"] | null;
+}
+
+const ACCESS_COOKIE = "sd_access";
+const REFRESH_COOKIE = "sd_refresh";
+
+let mockUserId = 100;
+const mockUsers = new Map<string, MockAuthUser>();
+const mockInvites = new Map<string, { email: string; role: MockAuthUser["role"] }>();
+
+function seedMockUsers() {
+  if (mockUsers.size) return;
+  const seeds: MockAuthUser[] = [
+    {
+      id: 1,
+      name: "SafariDesk Admin",
+      email: "admin@safaridesk.app",
+      password: "password123",
+      role: "admin",
+      status: "active",
+    },
+    {
+      id: 2,
+      name: "Amina Otieno",
+      email: "amina@example.com",
+      password: "password123",
+      role: "customer",
+      status: "active",
+    },
+    { id: 3, name: "Demo Driver", email: "driver@safaridesk.app", password: "password123", role: "driver", status: "active" },
+    { id: 4, name: "Demo Agent", email: "agent@safaridesk.app", password: "password123", role: "agent", status: "active" },
+    { id: 5, name: "Demo Operations", email: "ops@safaridesk.app", password: "password123", role: "operations", status: "active" },
+    { id: 6, name: "Demo Finance", email: "finance@safaridesk.app", password: "password123", role: "finance", status: "active" },
+  ];
+  for (const user of seeds) mockUsers.set(user.email, user);
+}
+seedMockUsers();
+
+function publicMockUser(user: MockAuthUser) {
+  return {
+    id: String(user.id),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    requestedRole: user.requestedRole ?? null,
+    lastLoginAt: null,
+  };
+}
+
+/** Dev-only: MSW cannot see httpOnly cookies, so the mock stores ids in document.cookie. */
+function setMockSession(user: MockAuthUser) {
+  mockSessionIds.set(ACCESS_COOKIE, String(user.id));
+  document.cookie = `${ACCESS_COOKIE}=${encodeURIComponent(String(user.id))}; Path=/; SameSite=Lax`;
+  document.cookie = `${REFRESH_COOKIE}=${encodeURIComponent(`refresh-${user.id}`)}; Path=/api/auth; SameSite=Lax`;
+  document.cookie = `sd_role=${encodeURIComponent(user.role)}; Path=/; SameSite=Lax`;
+}
+
+const mockSessionIds = new Map<string, string>();
+
+function readCookie(name: string): string | undefined {
+  const match = document.cookie
+    .split("; ")
+    .find((part) => part.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split("=").slice(1).join("=")) : undefined;
+}
+
+function currentUserFromCookie(anyCookie = false): MockAuthUser | undefined {
+  const accessId = readCookie(ACCESS_COOKIE);
+  const refresh = readCookie(REFRESH_COOKIE);
+  if (!accessId && !(anyCookie && refresh)) return undefined;
+  const byId = [...mockUsers.values()].find((u) => String(u.id) === accessId)
+    ?? [...mockUsers.values()].find((u) => refresh === `refresh-${u.id}`);
+  return byId;
+}
+
+function clearMockSession() {
+  document.cookie = `${ACCESS_COOKIE}=; Path=/; Max-Age=0`;
+  document.cookie = `${REFRESH_COOKIE}=; Path=/api/auth; Max-Age=0`;
+  document.cookie = "sd_role=; Path=/; Max-Age=0";
+  mockSessionIds.clear();
+}
+
 export const handlers = [
-  /* auth */
-  http.post("/api/auth/login", async ({ request }) => {
+  /* ------------------------------------------------------------------ auth --
+   * Development stand-ins mirroring the Express contract in
+   * ../../backend/src/routes/auth.ts. MSW cannot read httpOnly cookies, so the
+   * mock session is kept in document.cookie; the real backend sets sd_access /
+   * sd_refresh itself.
+   */
+
+  http.post("/api/auth/sign-in", async ({ request }) => {
     await delay(LATENCY);
     const body = (await request.json()) as { email?: string; password?: string };
-    if (!body.email || !body.password || body.password.length < 8) {
-      return json({ error: "Invalid email or password", code: "BAD_CREDENTIALS" }, { status: 401 });
+    const user = mockUsers.get((body.email ?? "").toLowerCase());
+    if (!user || user.password !== body.password) {
+      return json({ error: "Invalid email or password.", code: "BAD_CREDENTIALS" }, { status: 401 });
     }
-    return json({
-      token: "mock-jwt-token",
-      user: { id: 1, email: body.email, role: "admin" },
-    });
+    if (user.status === "pending") {
+      return json(
+        { error: "Your access request is awaiting admin approval.", code: "PENDING_APPROVAL" },
+        { status: 403 },
+      );
+    }
+    setMockSession(user);
+    return json({ user: publicMockUser(user), expiresAt: new Date(Date.now() + 900_000).toISOString() });
   }),
 
-  /* auth extras for Phase 1 shells (Phase 7 implements them server-side) */
   http.post("/api/auth/sign-up", async ({ request }) => {
     await delay(LATENCY);
-    const body = (await request.json()) as { name?: string; email?: string; password?: string };
+    const body = (await request.json()) as {
+      name?: string;
+      email?: string;
+      password?: string;
+      requestedRole?: string;
+    };
     if (!body.name || !body.email || !body.password || body.password.length < 8) {
-      return json({ error: "Name, email and an 8+ character password are required" }, { status: 400 });
+      return json(
+        { error: "Name, email and an 8+ character password are required", code: "VALIDATION" },
+        { status: 400 },
+      );
     }
-    db.users.push({
-      id: db.users.length + 1,
-      email: body.email,
+    const requested = (body.requestedRole ?? "customer") as MockAuthUser["role"];
+    if (requested === "admin" || requested === "super_admin") {
+      return json(
+        { error: "That role cannot be requested at sign-up.", code: "FORBIDDEN_ROLE" },
+        { status: 403 },
+      );
+    }
+    const email = body.email.toLowerCase();
+    if (mockUsers.has(email)) {
+      return json({ error: "An account already exists for that email.", code: "EMAIL_TAKEN" }, { status: 409 });
+    }
+    const needsApproval = ["driver", "agent", "operations", "finance"].includes(requested);
+    const user: MockAuthUser = {
+      id: mockUserId++,
       name: body.name,
-      role: "customer",
-      status: "ACTIVE",
-    });
-    return json({ ok: true, message: "Account created" }, { status: 201 });
+      email,
+      password: body.password,
+      role: needsApproval ? "customer" : requested,
+      status: needsApproval ? "pending" : "active",
+      requestedRole: needsApproval ? requested : null,
+    };
+    mockUsers.set(email, user);
+    const res = json(
+      { user: publicMockUser(user), pending: needsApproval },
+      { status: 201 },
+    );
+    if (!needsApproval) setMockSession(user);
+    return res;
   }),
 
   http.get("/api/auth/me", async () => {
     await delay(LATENCY);
-    return json({ id: 1, email: "admin@safaridesk.app", role: "admin" });
+    const user = currentUserFromCookie();
+    if (!user) return json({ error: "Sign in required.", code: "UNAUTHENTICATED" }, { status: 401 });
+    return json({ user: publicMockUser(user) });
   }),
 
   http.post("/api/auth/refresh", async () => {
     await delay(LATENCY);
-    return json({ token: "mock-jwt-refreshed" });
+    const user = currentUserFromCookie(true);
+    if (!user) return json({ error: "Sign in again.", code: "INVALID_REFRESH" }, { status: 401 });
+    setMockSession(user);
+    return json({ user: publicMockUser(user), expiresAt: new Date(Date.now() + 900_000).toISOString() });
   }),
 
   http.post("/api/auth/sign-out", async () => {
     await delay(LATENCY);
+    clearMockSession();
     return json({ ok: true });
   }),
 
   http.post("/api/auth/forgot-password", async () => {
     await delay(LATENCY * 2);
-    return json({ ok: true, message: "Reset link sent" });
+    // Always succeeds: the endpoint must not reveal which addresses exist.
+    return json({ ok: true });
   }),
 
   http.post("/api/auth/reset-password", async ({ request }) => {
     await delay(LATENCY);
     const body = (await request.json()) as { token?: string; password?: string };
     if (!body.token || !body.password || body.password.length < 8) {
-      return json({ error: "A valid token and a new password are required" }, { status: 400 });
+      return json({ error: "A valid token and a new password are required", code: "INVALID_TOKEN" }, { status: 400 });
     }
+    return json({ ok: true });
+  }),
+
+  http.post("/api/auth/invite", async ({ request }) => {
+    await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
+      return json({ error: "Admin role required.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    const body = (await request.json()) as { email?: string; role?: string };
+    if (!body.email || !body.role) {
+      return json({ error: "Validation failed", code: "VALIDATION" }, { status: 400 });
+    }
+    // Dev stand-in only: the real backend emails a hashed single-use link.
+    const token = `mock-invite-${Math.random().toString(36).slice(2)}`;
+    mockInvites.set(token, { email: body.email.toLowerCase(), role: body.role as MockAuthUser["role"] });
+    return json({ ok: true, devToken: token }, { status: 201 });
+  }),
+
+  http.post("/api/auth/accept-invite", async ({ request }) => {
+    await delay(LATENCY);
+    const body = (await request.json()) as { token?: string; name?: string; password?: string };
+    if (!body.token || !body.name || !body.password) {
+      return json({ error: "Invalid invitation", code: "INVALID_INVITE" }, { status: 400 });
+    }
+    const invite = mockInvites.get(body.token);
+    if (!invite) {
+      return json({ error: "This invitation is invalid or has expired.", code: "INVALID_INVITE" }, { status: 400 });
+    }
+    const user: MockAuthUser = {
+      id: mockUserId++,
+      name: body.name,
+      email: invite.email,
+      password: body.password,
+      role: invite.role,
+      status: "active",
+    };
+    mockUsers.set(invite.email, user);
+    mockInvites.delete(body.token);
+    return json({ user: publicMockUser(user) }, { status: 201 });
+  }),
+
+  /* ------------------------- admin user management ------------------------- */
+
+  http.get("/api/users", async () => {
+    await delay(LATENCY);
+    if (!currentUserFromCookie() || !["admin", "super_admin"].includes(currentUserFromCookie()!.role)) {
+      return json({ error: "Missing permission users:read.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    return json({ users: [...mockUsers.values()].map(publicMockUser) });
+  }),
+
+  http.get("/api/users/pending", async () => {
+    await delay(LATENCY);
+    const access = readCookie(ACCESS_COOKIE);
+    const current = access ? [...mockUsers.values()].find((u) => String(u.id) === access) : undefined;
+    if (!current || !["admin", "super_admin"].includes(current.role)) {
+      return json({ error: "Missing permission users:read.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    return json({
+      users: [...mockUsers.values()].filter((u) => u.status === "pending").map(publicMockUser),
+    });
+  }),
+
+  http.post("/api/users/:id/approve", async ({ params }) => {
+    await delay(LATENCY);
+    const target = [...mockUsers.values()].find((u) => String(u.id) === String(params.id));
+    if (!target || target.status !== "pending" || !target.requestedRole) {
+      return json({ error: "That account has no pending request.", code: "INVALID_REQUEST" }, { status: 400 });
+    }
+    target.role = target.requestedRole;
+    target.status = "active";
+    target.requestedRole = null;
+    return json({ user: publicMockUser(target) });
+  }),
+
+  http.post("/api/users/:id/reject", async ({ params }) => {
+    await delay(LATENCY);
+    const target = [...mockUsers.values()].find((u) => String(u.id) === String(params.id));
+    if (!target || target.status !== "pending") {
+      return json({ error: "That account has no pending request.", code: "INVALID_REQUEST" }, { status: 400 });
+    }
+    target.status = "disabled";
+    target.requestedRole = null;
+    return json({ user: publicMockUser(target) });
+  }),
+
+  http.patch("/api/users/:id", async ({ params, request }) => {
+    await delay(LATENCY);
+    const actor = currentUserFromCookie();
+    if (!actor || !["admin", "super_admin"].includes(actor.role)) {
+      return json({ error: "Missing permission users:manage.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    const body = (await request.json()) as { role?: string; status?: string };
+    const target = [...mockUsers.values()].find((u) => String(u.id) === params["id"]);
+    if (!target) return json({ error: "User not found.", code: "NOT_FOUND" }, { status: 404 });
+    if (String(target.id) === String(actor.id)) {
+      if (body.status && body.status !== "active") {
+        return json(
+          { error: "You cannot disable your own account.", code: "CANNOT_DISABLE_SELF" },
+          { status: 400 },
+        );
+      }
+      if (body.role && body.role !== target.role) {
+        return json(
+          { error: "You cannot change your own role.", code: "CANNOT_CHANGE_OWN_ROLE" },
+          { status: 400 },
+        );
+      }
+    }
+    if (body.role) target.role = body.role as MockAuthUser["role"];
+    if (body.status) target.status = body.status as MockAuthUser["status"];
+    return json({ user: publicMockUser(target) });
+  }),
+
+  http.post("/api/users/:id/password-reset", async ({ params }) => {
+    await delay(LATENCY);
+    const actor = currentUserFromCookie();
+    if (!actor || !["admin", "super_admin"].includes(actor.role)) {
+      return json({ error: "Missing permission users:manage.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    const target = [...mockUsers.values()].find((u) => String(u.id) === params["id"]);
+    if (!target) return json({ error: "User not found.", code: "NOT_FOUND" }, { status: 404 });
+    // Dev stand-in: the real backend emails a single-use reset link.
     return json({ ok: true });
   }),
 

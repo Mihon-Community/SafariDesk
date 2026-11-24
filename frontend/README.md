@@ -182,8 +182,68 @@ horizontal overflow; KPI rows measured 1 column at 360px and 6 at 1920px.
   pagination and a persisted view (`localStorage:datatable:<id>`). Bookings uses it on
   `md+` and the stacked-card table below.
 
+## Animation and motion (Phase 6)
+
+- **Page transitions**: `components/motion/RouteTransition.tsx` wraps the `(app)`
+  page content in `motion` + `AnimatePresence` — 180ms fade/slide on enter, short
+  fade on exit, shell stays mounted. Default mode is used deliberately:
+  `mode="popLayout"` reparents the outgoing page and broke client rendering of
+  data-heavy routes.
+- **Staggered reveals**: `components/motion/Stagger.tsx` (JS variants) for KPI
+  cards and a `.stagger-motion > *` CSS stagger for chart grids; both run once on
+  first load and animate only `transform`/`opacity`.
+- **Micro-interactions**: buttons scale to 97% on press (`motion-safe:active:scale`),
+  sonner toasts slide in via `.toast-slide`, sidebar width/padding tween 200ms,
+  mobile drawer slides in with a backdrop fade, and theme/palette changes crossfade
+  through a temporary `.theme-crossfade` class applied by `ThemeProvider`
+  (mutation observer compares values so it cannot loop).
+- **Reduced motion**: every animation above is gated — JS components use
+  `useReducedMotion()` from `motion/react`; CSS uses `@media
+  (prefers-reduced-motion: no-preference)` / `motion-safe:` / `motion-reduce:`.
+  Verified with emulated reduce: KPIs/charts render instantly, `animation-name: none`.
+
+## Authentication (Phase 7)
+
+- **Cookies, not localStorage.** `lib/api.ts` sends `credentials: "include"`; the
+  server sets httpOnly `sd_access` / `sd_refresh` cookies (`backend/src/routes/auth.ts`).
+  The store keeps only the user object.
+- **Silent refresh**: a 401 on any non-auth call triggers one shared in-flight
+  `POST /api/auth/refresh`; the request is retried once. If refresh fails the
+  session is cleared.
+- **Route protection**: `proxy.ts` redirects unauthenticated visitors from
+  `/dashboard`, `/bookings`, `/dispatch`, `/payments`, `/alerts`, `/rates`,
+  `/feedback`, `/users`, `/settings` to `/sign-in?next=…`, and signed-in users
+  away from auth pages. `RequireAuth`/`AuthGate` are the client-side companions.
+- **Auth pages** (`components/auth/AuthLayout.tsx`): split-screen park-photo layout,
+  stacked on mobile; Form + zod, password strength meter, show/hide password,
+  inline error and loading states on sign-in / sign-up / forgot / reset.
+- **Sign-out** revokes the server session, clears the TanStack Query cache and
+  disconnects the socket, then lands on `/`.
+- **Backend proxy**: set `BACKEND_URL` (and `NEXT_PUBLIC_USE_MOCKS=false`) and
+  Next rewrites `/api/*` to Express so cookies stay same-origin.
+
+## Roles and permissions (Phase 8)
+
+- One permission catalogue (`backend/src/auth/permissions.ts`, mirrored in
+  `frontend/src/lib/permissions.ts`). A vitest sync test imports both and fails
+  on any drift; every listed permission is asserted to be used by a role.
+- Backend gates: `requireAuth` populates `req.user`; `requirePermission('x:y')`
+  returns the standard `{error, code}` 403 body. `/api/users` uses
+  `users:read` for listing and `users:manage` for PATCH / password resets.
+- Frontend: `<Can permission="…" any>` plus `usePermissions()`/`usePermission()`
+  gate the sidebar, bottom tabs and dashboard widgets; each role gets its own
+  dashboard headline, e.g. customer → upcoming trips, driver → assignments,
+  finance → revenue, operations/dispatcher → live dispatch.
+- `/users` admin table (`features/users/UsersAdmin.tsx`): searchable data table
+  with inline role select, activate/deactivate, "send password reset" and an
+  invite form (email + staff role). Self-lockout guards refuse changing your own
+  role or disabling yourself.
+- Migration `005_rbac.sql` maps legacy `staff` rows to `operations` and tightens
+  the role CHECK constraints; `dispatcher` is a first-class role.
+
 ## Roadmap (UI overhaul prompt)
 
 ~~Phase 2 theming~~ done · ~~Phase 3 landing page~~ done · ~~Phase 4 responsive system~~ done ·
-~~Phase 5 cards/charts/tables + Python AI sidecar~~ done ·
-Phase 6 motion · Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.
+~~Phase 5 cards/charts/tables + Python AI sidecar~~ done · ~~Phase 6 animation and motion~~ done ·
+~~Phase 7 authentication (cookies, refresh, reset)~~ done · ~~Phase 8 roles & permissions~~ done ·
+Phase 9 guides.

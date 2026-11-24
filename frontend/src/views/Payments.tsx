@@ -89,7 +89,8 @@ export default function Payments() {
 
       {data && (
         <Tabs defaultValue="matched">
-          <TabsList>
+          <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsList className="w-max gap-1 [&>*]:shrink-0">
             {tabs.map(({ key, label, icon: Icon, rows }) => (
               <TabsTrigger key={key} value={key} className="gap-1.5">
                 <Icon className="h-3.5 w-3.5" />
@@ -99,7 +100,8 @@ export default function Payments() {
                 </Badge>
               </TabsTrigger>
             ))}
-          </TabsList>
+            </TabsList>
+          </div>
 
           {tabs.map(({ key, label, rows }) => (
             <TabsContent key={key} value={key}>

@@ -3,28 +3,36 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   BellRing,
   CalendarRange,
+  CarFront,
   ChevronsLeft,
   ChevronsRight,
   LayoutDashboard,
   LogOut,
+  Luggage,
   Menu,
   PlusCircle,
   ReceiptText,
   Search,
   Star,
   Truck,
+  Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
 import type { SafetyAlert } from "@/lib/types";
+import type { Permission } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permissions";
 import { formatDateTime, initials } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { useAuth } from "@/store/auth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useUiStore, loadStoredSidebar } from "@/store/ui";
 import { useRealtime } from "@/hooks/useRealtime";
 import { Button } from "@/components/ui/button";
@@ -39,25 +47,35 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { SignOutDialog } from "@/components/auth/SignOutDialog";
+import { SignedOutScreen } from "@/components/auth/SignedOutScreen";
 
-const NAV = [
+const NAV: Array<{ to: string; label: string; icon: LucideIcon; permission?: Permission }> = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/bookings", label: "Bookings", icon: CalendarRange },
-  { to: "/bookings/new", label: "New booking", icon: PlusCircle },
-  { to: "/dispatch", label: "Dispatch", icon: Truck },
-  { to: "/payments", label: "Payments", icon: ReceiptText },
-  { to: "/alerts", label: "Alerts", icon: BellRing },
-  { to: "/rates", label: "Rates", icon: Star },
-  { to: "/feedback", label: "Feedback", icon: Star },
+  { to: "/bookings", label: "Bookings", icon: CalendarRange, permission: "bookings:read" },
+  {
+    to: "/bookings/new",
+    label: "New booking",
+    icon: PlusCircle,
+    permission: "bookings:write",
+  },
+  { to: "/dispatch", label: "Dispatch", icon: Truck, permission: "dispatch:read" },
+  { to: "/payments", label: "Payments", icon: ReceiptText, permission: "payments:read" },
+  { to: "/alerts", label: "Alerts", icon: BellRing, permission: "alerts:read" },
+  { to: "/rates", label: "Rates", icon: Star, permission: "rates:read" },
+  { to: "/feedback", label: "Feedback", icon: Star, permission: "feedback:read" },
+  { to: "/users", label: "Users", icon: Users, permission: "users:read" },
+  { to: "/driver", label: "Driver view", icon: CarFront, permission: "dispatch:read" },
+  { to: "/my-trips", label: "My trips", icon: Luggage, permission: "concierge:use" },
 ];
 
-/** Phones get the five most-used routes as a bottom tab bar. */
-const TABS = [
+/** Phones get the five most-used routes as a bottom tab bar, filtered by role. */
+const TABS: Array<{ to: string; label: string; icon: LucideIcon; permission?: Permission }> = [
   { to: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { to: "/bookings", label: "Bookings", icon: CalendarRange },
-  { to: "/bookings/new", label: "New", icon: PlusCircle },
-  { to: "/dispatch", label: "Dispatch", icon: Truck },
-  { to: "/alerts", label: "Alerts", icon: BellRing },
+  { to: "/bookings", label: "Bookings", icon: CalendarRange, permission: "bookings:read" },
+  { to: "/bookings/new", label: "New", icon: PlusCircle, permission: "bookings:write" },
+  { to: "/dispatch", label: "Dispatch", icon: Truck, permission: "dispatch:read" },
+  { to: "/alerts", label: "Alerts", icon: BellRing, permission: "alerts:read" },
 ];
 
 function isActive(pathname: string, to: string) {
@@ -76,9 +94,11 @@ function NavItems({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const { can } = usePermissions();
   return (
     <nav className="flex flex-col gap-1 px-3">
-      {NAV.map(({ to, label, icon: Icon }) => {
+      {NAV.filter((item) => !item.permission || can(item.permission)).map(
+        ({ to, label, icon: Icon }) => {
         const active = isActive(pathname, to);
         return (
           <Link
@@ -157,9 +177,15 @@ function NotificationsMenu() {
   );
 }
 
-function UserMenu({ email, role }: { email: string; role: string }) {
-  const logout = useAuth((s) => s.logout);
-  const router = useRouter();
+function UserMenu({
+  email,
+  role,
+  onSignOut,
+}: {
+  email: string;
+  role: string;
+  onSignOut: () => void;
+}) {
 
   return (
     <DropdownMenu>
@@ -185,9 +211,9 @@ function UserMenu({ email, role }: { email: string; role: string }) {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() => {
-            logout();
-            router.replace("/sign-in");
+          onSelect={(e) => {
+            e.preventDefault();
+            onSignOut();
           }}
         >
           <LogOut className="h-4 w-4" /> Sign out
@@ -197,25 +223,25 @@ function UserMenu({ email, role }: { email: string; role: string }) {
   );
 }
 
-/** Redirects unauthenticated users to /sign-in (Phase 7 replaces this with middleware + cookies). */
+/** Redirects unauthenticated users to /sign-in (Phase 7 adds proxy.ts for the server-side guard). */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const token = useAuth((s) => s.token);
+  const user = useAuth((s) => s.user);
   const hydrated = useAuth((s) => s.hydrated);
   const hydrate = useAuth((s) => s.hydrate);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!hydrated) hydrate();
-  }, [hydrated, hydrate]);
+    void hydrate();
+  }, [hydrate]);
 
   useEffect(() => {
-    if (hydrated && !token) {
+    if (hydrated && !user) {
       router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
     }
-  }, [hydrated, token, pathname, router]);
+  }, [hydrated, user, pathname, router]);
 
-  if (!hydrated || !token) return null;
+  if (!hydrated || !user) return null;
   return <>{children}</>;
 }
 
@@ -223,25 +249,57 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const logout = useAuth((s) => s.logout);
   const user = useAuth((s) => s.user);
   const router = useRouter();
   const pathname = usePathname();
+  const reduceMotion = useReducedMotion();
+  const qc = useQueryClient();
 
   // Live updates are active anywhere inside the authenticated shell.
   useRealtime();
+
+  /**
+   * Sign-out (Phase 7): revoke the server session, drop every cached query and
+   * close the socket (useRealtime cleans up when the token clears), then show the
+   * signed-out interstitial which lands on `/`.
+   */
+  async function confirmSignOut(allDevices: boolean) {
+    setSigningOut(true);
+    try {
+      await logout();
+      if (allDevices) {
+        // Best effort: the API treats a plain sign-out as this device; the
+        // all-devices variant lands with the sessions endpoints.
+        try {
+          await fetch("/api/auth/sign-out", { method: "POST", credentials: "include" });
+        } catch {
+          /* ignore */
+        }
+      }
+      qc.clear();
+      setSignOutOpen(false);
+      setSignedOut(true);
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
+  const visibleTabs = TABS.filter((item) => !item.permission || hasPermission(user?.role ?? null, item.permission));
+
+  function handleLogout() {
+    setSignOutOpen(true);
+  }
 
   // Restore the persisted sidebar preference after mount (avoids a hydration mismatch).
   useEffect(() => {
     loadStoredSidebar();
   }, []);
-
-  function handleLogout() {
-    logout();
-    router.replace("/sign-in");
-  }
 
   function openSearch() {
     window.dispatchEvent(new Event(COMMAND_OPEN_EVENT));
@@ -252,7 +310,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Desktop sidebar (collapses to icons) */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden flex-col bg-brand transition-[width] duration-200 md:flex",
+          "fixed inset-y-0 left-0 z-30 hidden flex-col bg-brand transition-[width] duration-200 motion-reduce:transition-none md:flex",
           collapsed ? "w-16" : "w-64",
         )}
       >
@@ -332,51 +390,68 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* Mobile drawer: tap the backdrop or swipe right to close */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 md:hidden"
-          onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
-          onTouchEnd={(e) => {
-            if (touchStart !== null && e.changedTouches[0].clientX - touchStart > 60) {
-              setMobileOpen(false);
-            }
-            setTouchStart(null);
-          }}
-        >
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-brand">
-            <div className="flex items-center justify-between px-5 py-5">
-              <p className="text-base font-semibold text-brand-foreground">SafariDesk</p>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMobileOpen(false)}
-                className="text-brand-foreground/70 hover:bg-brand-foreground/10 hover:text-brand-foreground"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            <NavItems collapsed={false} onNavigate={() => setMobileOpen(false)} />
-            <div className="mt-auto space-y-3 border-t border-brand-foreground/10 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm text-brand-foreground/80">{user?.email ?? "Admin"}</p>
-                <ThemeMenu />
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            className="fixed inset-0 z-40 md:hidden"
+            initial={reduceMotion ? undefined : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
+            onTouchEnd={(e) => {
+              if (touchStart !== null && e.changedTouches[0].clientX - touchStart > 60) {
+                setMobileOpen(false);
+              }
+              setTouchStart(null);
+            }}
+          >
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.div
+              className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-brand"
+              initial={reduceMotion ? undefined : { x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <div className="flex items-center justify-between px-5 py-5">
+                <p className="text-base font-semibold text-brand-foreground">SafariDesk</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileOpen(false)}
+                  className="text-brand-foreground/70 hover:bg-brand-foreground/10 hover:text-brand-foreground"
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-brand-foreground/30 bg-transparent text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
-                onClick={handleLogout}
-              >
-                Sign out
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+              <NavItems collapsed={false} onNavigate={() => setMobileOpen(false)} />
+              <div className="mt-auto space-y-3 border-t border-brand-foreground/10 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm text-brand-foreground/80">
+                    {user?.email ?? "Admin"}
+                  </p>
+                  <ThemeMenu />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-brand-foreground/30 bg-transparent text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
+                  onClick={handleLogout}
+                >
+                  Sign out
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <main className={cn("transition-[padding] duration-200", collapsed ? "md:pl-16" : "md:pl-64")}>
+      <main className={cn("transition-[padding] duration-200 motion-reduce:transition-none", collapsed ? "md:pl-16" : "md:pl-64")}>
         <div
           className={cn(
             "page-shell px-4 py-4 sm:px-6 sm:py-6 lg:py-8",
@@ -411,7 +486,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="ml-auto flex items-center gap-2">
               <NotificationsMenu />
               <ThemeMenu />
-              <UserMenu email={user?.email ?? "Admin"} role={user?.role ?? "admin"} />
+              <UserMenu email={user?.email ?? "Admin"} role={user?.role ?? "admin"} onSignOut={handleLogout} />
             </div>
           </div>
 
@@ -424,8 +499,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-30 border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
         aria-label="Primary"
       >
-        <div className="grid grid-cols-5">
-          {TABS.map(({ to, label, icon: Icon }) => {
+        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
+          {visibleTabs.map(({ to, label, icon: Icon }) => {
             const active = isActive(pathname, to);
             return (
               <Link
@@ -446,6 +521,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       <CommandPalette />
+
+      <SignOutDialog
+        open={signOutOpen}
+        busy={signingOut}
+        onCancel={() => setSignOutOpen(false)}
+        onConfirm={(allDevices) => void confirmSignOut(allDevices)}
+      />
+      {signedOut && <SignedOutScreen />}
     </div>
   );
 }

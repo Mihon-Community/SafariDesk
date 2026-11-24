@@ -11,6 +11,7 @@ You are working on **SafariDesk**, a safari / tour operations platform (bookings
 payments, alerts, rates, feedback, AI itinerary/concierge).
 
 Current state of the repo:
+
 - `frontend/` — **Vite + React 18 + React Router 7**, Tailwind v4, shadcn/ui (button, card, table,
   dialog, select, tabs, badge, alert, input, label, textarea, skeleton), lucide-react, Recharts 3,
   TanStack Query 5, Zustand (auth store), react-hook-form + zod, socket.io-client, sonner, MSW mocks.
@@ -37,20 +38,20 @@ realtime behaviour. Where you must change a contract, update both sides and the 
 
 ## Required libraries (use these; don't swap without saying why)
 
-| Concern | Library |
-|---|---|
-| Framework | `next` (latest stable, App Router, Turbopack), `react` 19 |
-| Components | **shadcn/ui** (re-init for Next.js; add sidebar, sheet, dropdown-menu, avatar, tooltip, popover, command, calendar, chart, sonner, toggle-group, breadcrumb, pagination, scroll-area, carousel, form, drawer, navigation-menu, hover-card, progress, switch, checkbox, radio-group) |
-| Icons | `lucide-react` only |
-| 3D | `three`, `@react-three/fiber`, `@react-three/drei` (lazy-loaded, client-only) |
-| Animation | `motion` (Framer Motion), `tw-animate-css`; optional Magic UI / Aceternity-style blocks copied in as source |
-| Charts | **shadcn Charts (Recharts)** as the default; `@nivo/calendar` / `@nivo/heatmap` only for heatmaps/calendar views if needed |
-| Tables | `@tanstack/react-table` with the shadcn data-table pattern |
-| Themes | `next-themes` |
-| Images | `next/image` (AVIF/WebP, `sizes`, `placeholder="blur"`) |
-| Carousel | `embla-carousel-react` (via shadcn carousel) |
-| Data/state | keep TanStack Query, Zustand, react-hook-form + zod, socket.io-client, sonner |
-| Maps (optional) | `react-leaflet` for dispatch/park map |
+| Concern         | Library                                                                                                                                                                                                                                                                                   |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework       | `next` (latest stable, App Router, Turbopack), `react` 19                                                                                                                                                                                                                             |
+| Components      | **shadcn/ui** (re-init for Next.js; add sidebar, sheet, dropdown-menu, avatar, tooltip, popover, command, calendar, chart, sonner, toggle-group, breadcrumb, pagination, scroll-area, carousel, form, drawer, navigation-menu, hover-card, progress, switch, checkbox, radio-group) |
+| Icons           | `lucide-react` only                                                                                                                                                                                                                                                                     |
+| 3D              | `three`, `@react-three/fiber`, `@react-three/drei` (lazy-loaded, client-only)                                                                                                                                                                                                       |
+| Animation       | `motion` (Framer Motion), `tw-animate-css`; optional Magic UI / Aceternity-style blocks copied in as source                                                                                                                                                                           |
+| Charts          | **shadcn Charts (Recharts)** as the default; `@nivo/calendar` / `@nivo/heatmap` only for heatmaps/calendar views if needed                                                                                                                                                      |
+| Tables          | `@tanstack/react-table` with the shadcn data-table pattern                                                                                                                                                                                                                              |
+| Themes          | `next-themes`                                                                                                                                                                                                                                                                           |
+| Images          | `next/image` (AVIF/WebP, `sizes`, `placeholder="blur"`)                                                                                                                                                                                                                             |
+| Carousel        | `embla-carousel-react` (via shadcn carousel)                                                                                                                                                                                                                                            |
+| Data/state      | keep TanStack Query, Zustand, react-hook-form + zod, socket.io-client, sonner                                                                                                                                                                                                             |
+| Maps (optional) | `react-leaflet` for dispatch/park map                                                                                                                                                                                                                                                   |
 
 ## Phase 1 — Migrate to Next.js
 
@@ -79,6 +80,7 @@ per theme for light and dark (`[data-theme="x"]` and `[data-theme="x"].dark`). T
 6. **Rainforest** (Kakamega) — deep greens
 
 Requirements:
+
 - `next-themes` handles mode (`light` / `dark` / `system`); a separate persisted setting handles colour theme.
 - Theme switcher in the top bar and in Settings: mode toggle-group plus a palette grid with live previews.
 - No flash of the wrong theme on load. Respect `prefers-reduced-motion` and `prefers-contrast`.
@@ -132,11 +134,13 @@ Breakpoints: Tailwind defaults plus custom `3xl: 1920px` and `4xl: 2560px`.
 ## Phase 5 — Cards, charts and tables
 
 **Cards**
+
 - KPI card: icon, value with animated count-up, delta badge (▲/▼ with colour plus text, never colour
   alone), sparkline, and a tooltip explaining the metric.
 - Hover lift and subtle gradient border. Skeleton loading state, empty state with illustration, and error state with retry.
 
 **Charts** (shadcn `ChartContainer` + Recharts, colours from theme variables)
+
 - Dashboard: revenue area chart with a range selector (7d/30d/90d/YTD) and a comparison-to-previous-period line;
   bookings by park (horizontal bar); booking status (donut with centre total); driver utilisation
   (radial); payments by method (stacked bar); occupancy calendar heatmap.
@@ -150,6 +154,7 @@ Breakpoints: Tailwind defaults plus custom `3xl: 1920px` and `4xl: 2560px`.
 - Animate chart entry with a short duration, and skip the animation when reduced motion is set.
 
 **Tables** (TanStack Table + shadcn data-table)
+
 - Server-side pagination, sorting and filtering wired to existing API query params (add params to the backend if missing).
 - Global search, faceted filters (status, park, driver, date range), column visibility, density toggle,
   row selection with bulk actions, CSV export, saved views in localStorage.
@@ -164,9 +169,10 @@ Breakpoints: Tailwind defaults plus custom `3xl: 1920px` and `4xl: 2560px`.
 - Respect `prefers-reduced-motion` globally. Use a `useReducedMotion` guard for all motion and 3D.
 - Animate only `transform` and `opacity`. Avoid layout thrash.
 
-## Phase 7 — Authentication (sign up / sign in / sign out)
+#### Phase 7 — Authentication (sign up / sign in / sign out)
 
 **Backend (Express)**
+
 - `POST /auth/sign-up` — zod-validated, bcrypt-hashed. Public sign-up creates a `customer` user.
   Staff accounts are created by admins via invite.
 - `POST /auth/sign-in` — returns a short-lived access JWT (15m) and a rotating refresh token,
@@ -179,6 +185,7 @@ Breakpoints: Tailwind defaults plus custom `3xl: 1920px` and `4xl: 2560px`.
 - Vitest tests for every auth route, including the failure cases.
 
 **Frontend (Next.js)**
+
 - Split-screen auth pages: park photo on one side, form on the other (stacked on mobile).
   Use shadcn Form + zod, a password strength meter, show/hide password, and good error and loading states.
 - Use `middleware.ts` (or `proxy.ts` on Next 16+) to redirect unauthenticated users from `(app)` routes
@@ -191,15 +198,15 @@ Breakpoints: Tailwind defaults plus custom `3xl: 1920px` and `4xl: 2560px`.
 
 Roles:
 
-| Role | Access |
-|---|---|
-| `super_admin` | Everything, including user management, roles, system settings and audit log |
-| `admin` | Everything except super-admin settings. Manages users, rates, payments, reports |
-| `operations` / `dispatcher` | Bookings, dispatch, drivers, alerts. Read-only payments |
-| `finance` | Payments, invoices, rates (read), revenue reports |
-| `agent` (sales / front desk) | Create and edit bookings, quotes, customer feedback |
-| `driver` | Own assignments, trip status updates, own schedule (mobile-first view) |
-| `customer` | Own bookings, itineraries, payments, feedback, AI concierge |
+| Role                            | Access                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| `super_admin`                 | Everything, including user management, roles, system settings and audit log     |
+| `admin`                       | Everything except super-admin settings. Manages users, rates, payments, reports |
+| `operations` / `dispatcher` | Bookings, dispatch, drivers, alerts. Read-only payments                         |
+| `finance`                     | Payments, invoices, rates (read), revenue reports                               |
+| `agent` (sales / front desk)  | Create and edit bookings, quotes, customer feedback                             |
+| `driver`                      | Own assignments, trip status updates, own schedule (mobile-first view)          |
+| `customer`                    | Own bookings, itineraries, payments, feedback, AI concierge                     |
 
 - Define one source of truth: a shared `permissions.ts` map of `role → permissions[]` with permissions
   like `bookings:read`, `bookings:write`, `payments:refund`, `users:manage`. Import it from both

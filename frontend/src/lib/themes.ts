@@ -9,37 +9,37 @@ export const THEMES = [
     id: "savannah",
     name: "Savannah",
     description: "Golden grass and warm amber",
-    swatches: ["#006933", "#a75c00", "#faf6ee"],
+    swatches: ["#B45309", "#4D7C0F", "#FBF6EC"],
   },
   {
     id: "maasai",
     name: "Maasai Mara",
     description: "Red ochre and shuka red",
-    swatches: ["#a50013", "#b64e10", "#fbf3ec"],
+    swatches: ["#B91C1C", "#1D4ED8", "#FBF3F0"],
   },
   {
     id: "serengeti",
     name: "Serengeti Dusk",
     description: "Sunset orange into violet",
-    swatches: ["#982900", "#9b49ae", "#f9f0ea"],
+    swatches: ["#C2410C", "#7C3AED", "#FDF4EE"],
   },
   {
     id: "kilimanjaro",
     name: "Kilimanjaro",
     description: "Glacier blue and slate",
-    swatches: ["#005e82", "#2a7f88", "#f2f7fa"],
+    swatches: ["#0369A1", "#475569", "#F1F6FA"],
   },
   {
     id: "diani",
     name: "Diani Coast",
     description: "Turquoise water and sand",
-    swatches: ["#00686a", "#ae5528", "#f3f6f3"],
+    swatches: ["#0F766E", "#B45309", "#F0F8F7"],
   },
   {
     id: "rainforest",
     name: "Rainforest",
     description: "Deep Kakamega greens",
-    swatches: ["#006647", "#887000", "#f2f7f1"],
+    swatches: ["#15803D", "#A16207", "#F1F7F1"],
   },
 ] as const;
 

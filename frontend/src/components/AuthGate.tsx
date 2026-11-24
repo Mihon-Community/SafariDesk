@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/store/auth";
 
-/** Sends already-signed-in users away from auth pages (Phase 7: middleware). */
+/**
+ * Client companion to `proxy.ts`: sends already-signed-in users away from auth
+ * pages. The server-side proxy is the authoritative guard.
+ */
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const token = useAuth((s) => s.token);
+  const user = useAuth((s) => s.user);
   const router = useRouter();
 
   useEffect(() => {
-    if (token) router.replace("/dashboard");
-  }, [token, router]);
+    if (user) router.replace("/dashboard");
+  }, [user, router]);
 
-  if (token) return null;
+  if (user) return null;
   return <>{children}</>;
 }

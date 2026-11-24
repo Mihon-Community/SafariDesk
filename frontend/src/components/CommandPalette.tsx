@@ -116,8 +116,7 @@ export function CommandPalette() {
                   value="Sign out"
                   onSelect={() => {
                     setOpen(false);
-                    logout();
-                    router.replace("/sign-in");
+                    void logout().then(() => router.replace("/"));
                   }}
                   className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-destructive data-[selected=true]:bg-secondary"
                 >

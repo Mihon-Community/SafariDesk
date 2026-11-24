@@ -20,6 +20,9 @@ import { Money } from "@/components/Money";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CardsSkeleton, ErrorState } from "@/components/States";
 import { KpiCard } from "@/components/KpiCard";
+import { Can } from "@/components/Can";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Stagger, StaggerItem } from "@/components/motion/Stagger";
 import { RevenueRangeChart } from "@/components/charts/RevenueRangeChart";
 import { ForecastChart } from "@/components/charts/ForecastChart";
 import {
@@ -37,7 +40,20 @@ import {
 } from "@/hooks/useAnalytics";
 import { useBookings } from "@/hooks/useBookings";
 
+/** Each role gets its own dashboard headline (widgets are filtered by permission). */
+const ROLE_BLURB: Record<string, string> = {
+  customer: "Your upcoming trips, documents and payments.",
+  driver: "Today's assignments and your schedule.",
+  finance: "Revenue collected, deposits and payment methods.",
+  dispatcher: "Live dispatch: unallocated trips, drivers and occupancy.",
+  operations: "Bookings, dispatch and driver status at a glance.",
+  agent: "Your quotes, bookings and guest feedback.",
+  admin: "Everything across bookings, money and people.",
+  super_admin: "Full operational and system overview.",
+};
+
 export default function Dashboard() {
+  const { role, canAny } = usePermissions();
   const summary = useQuery({
     queryKey: ["summary"],
     queryFn: () => api<AnalyticsSummary>("/api/analytics/summary"),
@@ -81,7 +97,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Bookings, revenue and dispatch at a glance."
+        description={ROLE_BLURB[role ?? ""] ?? "Bookings, revenue and dispatch at a glance."}
       />
 
       {summary.isLoading && <CardsSkeleton />}
@@ -96,48 +112,57 @@ export default function Dashboard() {
       {data && (
         <>
           {/* KPI cards — value, delta, sparkline, tooltip */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 3xl:grid-cols-6">
-            <KpiCard
-              title="Total bookings"
-              hint="All bookings across every status."
-              value={totalBookings}
-              icon={ClipboardList}
-              href="/bookings"
-              delta={deltas.bookings}
-              deltaLabel="vs prior 30 days"
-              spark={spark.bookings}
-            />
-            <KpiCard
-              title="Revenue collected"
-              hint="Deposits received, excluding balances due."
-              value={data.revenuePaid}
-              format="money"
-              icon={CircleDollarSign}
-              href="/payments"
-              delta={deltas.revenue}
-              deltaLabel="vs prior 30 days"
-              spark={spark.revenue}
-            />
-            <KpiCard
-              title="Departing in 7 days"
-              hint="Confirmed trips starting this week."
-              value={data.departing7Days.length}
-              icon={CalendarRange}
-              href="/bookings?status=CONFIRMED"
-              deltaLabel="confirmed trips"
-            />
-            <KpiCard
-              title="Unallocated trips"
-              hint="Trips with no driver assigned yet."
-              value={data.unallocated}
-              icon={Truck}
-              href="/dispatch"
-              deltaLabel="need a driver"
-            />
-          </div>
+          <Stagger className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4 3xl:grid-cols-6">
+            <StaggerItem>
+              <KpiCard
+                title="Total bookings"
+                hint="All bookings across every status."
+                value={totalBookings}
+                icon={ClipboardList}
+                href="/bookings"
+                delta={deltas.bookings}
+                deltaLabel="vs prior 30 days"
+                spark={spark.bookings}
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <KpiCard
+                title="Revenue collected"
+                hint="Deposits received, excluding balances due."
+                value={data.revenuePaid}
+                format="money"
+                icon={CircleDollarSign}
+                href="/payments"
+                delta={deltas.revenue}
+                deltaLabel="vs prior 30 days"
+                spark={spark.revenue}
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <KpiCard
+                title="Departing in 7 days"
+                hint="Confirmed trips starting this week."
+                value={data.departing7Days.length}
+                icon={CalendarRange}
+                href="/bookings?status=CONFIRMED"
+                deltaLabel="confirmed trips"
+              />
+            </StaggerItem>
+            <StaggerItem>
+              <KpiCard
+                title="Unallocated trips"
+                hint="Trips with no driver assigned yet."
+                value={data.unallocated}
+                icon={Truck}
+                href="/dispatch"
+                deltaLabel="need a driver"
+              />
+            </StaggerItem>
+          </Stagger>
 
           {/* Revenue + status */}
-          <div className="grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+<Can permission={["bookings:read", "payments:read"]} any>
+          <div className="stagger-motion grid items-start gap-4 lg:grid-cols-2 3xl:grid-cols-3 4xl:grid-cols-4">
             <Card className="3xl:col-span-2">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Revenue</CardTitle>
@@ -167,9 +192,11 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          </Can>
 
           {/* Demand forecast + park mix + occupancy */}
-          <div className="grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+<Can permission={["reports:read", "bookings:read", "dispatch:read"]} any>
+          <div className="stagger-motion grid items-start gap-4 lg:grid-cols-2 3xl:grid-cols-3 4xl:grid-cols-4">
             <Card>
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Demand forecast</CardTitle>
@@ -209,9 +236,11 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          </Can>
 
           {/* Payments + drivers + departures */}
-          <div className="grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
+<Can permission={["payments:read", "dispatch:read", "drivers:read", "bookings:read"]} any>
+          <div className="stagger-motion grid items-start gap-4 lg:grid-cols-2 3xl:grid-cols-3 4xl:grid-cols-4">
             <Card>
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-sm">Payments by method</CardTitle>
@@ -284,6 +313,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          </Can>
 
           <p className="text-xs text-muted-foreground">
             Deposit balance outstanding: <Money value={data.depositsDue} plain /> (

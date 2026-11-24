@@ -29,14 +29,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // Read the stored session after mount so SSR and the first client render match.
   useEffect(() => {
-    useAuth.getState().hydrate();
+    void useAuth.getState().hydrate();
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {mocksOn && <MswStarter />}
+      {mocksOn && process.env.NODE_ENV === "development" && <MswStarter />}
       {children}
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{ className: "toast-slide" }}
+      />
     </QueryClientProvider>
   );
 }

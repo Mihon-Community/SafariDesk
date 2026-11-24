@@ -1,17 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck, UserRound, UsersRound, CarFront } from "lucide-react";
 
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/store/auth";
-import type { LoginResponse } from "@/lib/types";
+import type { SessionUser } from "@/store/auth";
+import { DEMO_ACCOUNTS, ROLE_HOME, SIGN_IN_GROUPS } from "@/lib/roles";
+import type { SignInGroup } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -22,15 +24,26 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
+const GROUP_ROLES: Record<SignInGroup, string[]> = {
+  traveller: ["customer"],
+  driver: ["driver"],
+  staff: ["agent", "operations", "dispatcher", "finance"],
+  admin: ["admin", "super_admin"],
+};
+
 export default function Login() {
   const setSession = useAuth((s) => s.setSession);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const from = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next");
+  const [group, setGroup] = useState<SignInGroup>("traveller");
+  const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -38,58 +51,141 @@ export default function Login() {
   });
 
   async function onSubmit(values: LoginValues) {
+    setFormError(null);
     try {
-      const res = await api<LoginResponse>("/api/auth/login", {
+      const res = await api<{ user: SessionUser }>("/api/auth/sign-in", {
         method: "POST",
         body: values,
       });
-      setSession(res.token, res.user);
-      toast.success("Signed in");
-      router.push(from);
+      // Cookies carry the session; the user object feeds the UI.
+      setSession(res.user);
+      const expected = GROUP_ROLES[group];
+      if (!expected.includes(res.user.role)) {
+        toast.info(`Signed in as ${res.user.role}`);
+      } else {
+        toast.success(`Welcome back, ${(res.user.name ?? res.user.email).split(" ")[0]}`);
+      }
+      // The backend's role decides where you land — never the segmented control.
+      if (next && next.startsWith("/") && !next.startsWith("/sign-")) {
+        router.push(next);
+      } else {
+        router.push(ROLE_HOME[res.user.role]);
+      }
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Sign-in failed");
+      const message = err instanceof ApiError ? err.message : "Sign-in failed";
+      setFormError(message);
+      toast.error(message);
     }
   }
 
+  function fillDemo(email: string, password: string) {
+    setValue("email", email);
+    setValue("password", password);
+  }
+
+  const hint = SIGN_IN_GROUPS.find((g) => g.id === group)?.hint;
+
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-brand p-4">
-      <Card className="w-full max-w-sm shadow-lg">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-lg font-bold text-accent-foreground">
-            S
-          </div>
-          <CardTitle className="text-xl">SafariDesk</CardTitle>
-          <CardDescription>Sign in to the operator dashboard</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" {...register("email")} />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                {...register("password")}
-              />
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Sign in
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Demo instance: use the ADMIN_EMAIL and ADMIN_PASSWORD from your server config.
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <Label id="signin-group-label" className="text-xs uppercase tracking-wide text-muted-foreground">
+          Sign in as
+        </Label>
+        <div
+          role="radiogroup"
+          aria-labelledby="signin-group-label"
+          className="grid grid-cols-2 gap-1 rounded-xl border bg-muted/40 p-1 sm:grid-cols-4"
+        >
+          {SIGN_IN_GROUPS.map((item) => {
+            const Icon =
+              item.id === "driver" ? CarFront : item.id === "staff" ? UsersRound : item.id === "admin" ? ShieldCheck : UserRound;
+            const active = group === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setGroup(item.id)}
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  active ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" aria-hidden />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        {formError && (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          >
+            {formError}
           </p>
-        </CardContent>
-      </Card>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" autoComplete="email" {...register("email")} />
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <a href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
+              Forgot?
+            </a>
+          </div>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              className="pr-10"
+              {...register("password")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+        </div>
+
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSubmitting ? "Signing in…" : "Sign in"}
+        </Button>
+      </form>
+
+      {process.env.NODE_ENV !== "production" && (
+        <div className="space-y-2 border-t pt-3">
+          <p className="text-xs font-medium text-muted-foreground">Demo accounts (dev only)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.email}
+                type="button"
+                onClick={() => fillDemo(account.email, account.password)}
+                className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:border-primary hover:text-primary"
+              >
+                {account.role}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
