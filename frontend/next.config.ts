@@ -1,8 +1,19 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
+/**
+ * When NEXT_PUBLIC_USE_MOCKS=false and BACKEND_URL is set, /api/* is proxied to
+ * the Express server so cookies stay same-origin. In mock mode the browser's
+ * service worker answers those paths directly.
+ */
+const BACKEND_URL = process.env.BACKEND_URL ?? "";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    if (!BACKEND_URL) return [];
+    return [{ source: "/api/:path*", destination: `${BACKEND_URL}/api/:path*` }];
+  },
   // Keep Turbopack's workspace root at the repo so lockfiles above frontend/ are ignored cleanly.
   turbopack: {
     root: path.resolve(import.meta.dirname, ".."),

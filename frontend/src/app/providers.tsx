@@ -29,7 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // Read the stored session after mount so SSR and the first client render match.
   useEffect(() => {
-    useAuth.getState().hydrate();
+    void useAuth.getState().hydrate();
   }, []);
 
   return (

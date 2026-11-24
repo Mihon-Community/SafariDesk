@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   BellRing,
@@ -158,9 +158,15 @@ function NotificationsMenu() {
   );
 }
 
-function UserMenu({ email, role }: { email: string; role: string }) {
-  const logout = useAuth((s) => s.logout);
-  const router = useRouter();
+function UserMenu({
+  email,
+  role,
+  onSignOut,
+}: {
+  email: string;
+  role: string;
+  onSignOut: () => void;
+}) {
 
   return (
     <DropdownMenu>
@@ -186,9 +192,9 @@ function UserMenu({ email, role }: { email: string; role: string }) {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() => {
-            logout();
-            router.replace("/sign-in");
+          onSelect={(e) => {
+            e.preventDefault();
+            onSignOut();
           }}
         >
           <LogOut className="h-4 w-4" /> Sign out
@@ -198,25 +204,25 @@ function UserMenu({ email, role }: { email: string; role: string }) {
   );
 }
 
-/** Redirects unauthenticated users to /sign-in (Phase 7 replaces this with middleware + cookies). */
+/** Redirects unauthenticated users to /sign-in (Phase 7 adds proxy.ts for the server-side guard). */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const token = useAuth((s) => s.token);
+  const user = useAuth((s) => s.user);
   const hydrated = useAuth((s) => s.hydrated);
   const hydrate = useAuth((s) => s.hydrate);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!hydrated) hydrate();
-  }, [hydrated, hydrate]);
+    void hydrate();
+  }, [hydrate]);
 
   useEffect(() => {
-    if (hydrated && !token) {
+    if (hydrated && !user) {
       router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
     }
-  }, [hydrated, token, pathname, router]);
+  }, [hydrated, user, pathname, router]);
 
-  if (!hydrated || !token) return null;
+  if (!hydrated || !user) return null;
   return <>{children}</>;
 }
 
@@ -231,19 +237,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
+  const qc = useQueryClient();
 
   // Live updates are active anywhere inside the authenticated shell.
   useRealtime();
+
+  /**
+   * Sign-out (Phase 7): revoke the server session, drop every cached query and
+   * close the socket (useRealtime cleans up when the token clears), then land on
+   * the public site.
+   */
+  async function handleLogout() {
+    await logout();
+    qc.clear();
+    router.replace("/");
+  }
 
   // Restore the persisted sidebar preference after mount (avoids a hydration mismatch).
   useEffect(() => {
     loadStoredSidebar();
   }, []);
-
-  function handleLogout() {
-    logout();
-    router.replace("/sign-in");
-  }
 
   function openSearch() {
     window.dispatchEvent(new Event(COMMAND_OPEN_EVENT));
@@ -430,7 +443,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="ml-auto flex items-center gap-2">
               <NotificationsMenu />
               <ThemeMenu />
-              <UserMenu email={user?.email ?? "Admin"} role={user?.role ?? "admin"} />
+              <UserMenu email={user?.email ?? "Admin"} role={user?.role ?? "admin"} onSignOut={handleLogout} />
             </div>
           </div>
 

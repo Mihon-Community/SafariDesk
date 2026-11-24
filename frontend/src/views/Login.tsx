@@ -1,17 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/store/auth";
-import type { LoginResponse } from "@/lib/types";
+import type { SessionUser } from "@/store/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -27,6 +27,8 @@ export default function Login() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("next") ?? "/dashboard";
+  const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     register,
@@ -38,58 +40,71 @@ export default function Login() {
   });
 
   async function onSubmit(values: LoginValues) {
+    setFormError(null);
     try {
-      const res = await api<LoginResponse>("/api/auth/login", {
+      const res = await api<{ user: SessionUser }>("/api/auth/sign-in", {
         method: "POST",
         body: values,
       });
-      setSession(res.token, res.user);
-      toast.success("Signed in");
+      // Cookies carry the session; the user object feeds the UI.
+      setSession(res.user);
+      toast.success(`Welcome back, ${res.user.name?.split(" ")[0] ?? res.user.email}`);
       router.push(from);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Sign-in failed");
+      const message = err instanceof ApiError ? err.message : "Sign-in failed";
+      setFormError(message);
+      toast.error(message);
     }
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-brand p-4">
-      <Card className="w-full max-w-sm shadow-lg">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-lg font-bold text-accent-foreground">
-            S
-          </div>
-          <CardTitle className="text-xl">SafariDesk</CardTitle>
-          <CardDescription>Sign in to the operator dashboard</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" {...register("email")} />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                {...register("password")}
-              />
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Sign in
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Demo instance: use the ADMIN_EMAIL and ADMIN_PASSWORD from your server config.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      {formError && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        >
+          {formError}
+        </p>
+      )}
+
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" type="email" autoComplete="email" {...register("email")} />
+        {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <a href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
+            Forgot?
+          </a>
+        </div>
+        <div className="relative">
+          <Input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            className="pr-10"
+            {...register("password")}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+        {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+      </div>
+
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+        {isSubmitting ? "Signing in…" : "Sign in"}
+      </Button>
+    </form>
   );
 }

@@ -426,64 +426,207 @@ function json(data: unknown, init?: ResponseInit) {
   return HttpResponse.json(data as never, init);
 }
 
+/* --------------------------- mock auth session --------------------------- */
+
+interface MockAuthUser {
+  id: number;
+  name: string;
+  email: string;
+  password: string;
+  role: "super_admin" | "admin" | "operations" | "finance" | "agent" | "driver" | "customer";
+  status: "active" | "invited" | "disabled";
+}
+
+const ACCESS_COOKIE = "sd_access";
+const REFRESH_COOKIE = "sd_refresh";
+
+let mockUserId = 100;
+const mockUsers = new Map<string, MockAuthUser>();
+const mockInvites = new Map<string, { email: string; role: MockAuthUser["role"] }>();
+
+function seedMockUsers() {
+  if (mockUsers.size) return;
+  const seeds: MockAuthUser[] = [
+    {
+      id: 1,
+      name: "SafariDesk Admin",
+      email: "admin@safaridesk.app",
+      password: "password123",
+      role: "admin",
+      status: "active",
+    },
+    {
+      id: 2,
+      name: "Amina Otieno",
+      email: "amina@example.com",
+      password: "password123",
+      role: "customer",
+      status: "active",
+    },
+  ];
+  for (const user of seeds) mockUsers.set(user.email, user);
+}
+seedMockUsers();
+
+function publicMockUser(user: MockAuthUser) {
+  return {
+    id: String(user.id),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    lastLoginAt: null,
+  };
+}
+
+/** Dev-only: MSW cannot see httpOnly cookies, so the mock stores ids in document.cookie. */
+function setMockSession(user: MockAuthUser) {
+  mockSessionIds.set(ACCESS_COOKIE, String(user.id));
+  document.cookie = `${ACCESS_COOKIE}=${encodeURIComponent(String(user.id))}; Path=/; SameSite=Lax`;
+  document.cookie = `${REFRESH_COOKIE}=${encodeURIComponent(`refresh-${user.id}`)}; Path=/api/auth; SameSite=Lax`;
+}
+
+const mockSessionIds = new Map<string, string>();
+
+function readCookie(name: string): string | undefined {
+  const match = document.cookie
+    .split("; ")
+    .find((part) => part.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split("=").slice(1).join("=")) : undefined;
+}
+
+function currentUserFromCookie(anyCookie = false): MockAuthUser | undefined {
+  const accessId = readCookie(ACCESS_COOKIE);
+  const refresh = readCookie(REFRESH_COOKIE);
+  if (!accessId && !(anyCookie && refresh)) return undefined;
+  const byId = [...mockUsers.values()].find((u) => String(u.id) === accessId)
+    ?? [...mockUsers.values()].find((u) => refresh === `refresh-${u.id}`);
+  return byId;
+}
+
+function clearMockSession() {
+  document.cookie = `${ACCESS_COOKIE}=; Path=/; Max-Age=0`;
+  document.cookie = `${REFRESH_COOKIE}=; Path=/api/auth; Max-Age=0`;
+  mockSessionIds.clear();
+}
+
 export const handlers = [
-  /* auth */
-  http.post("/api/auth/login", async ({ request }) => {
+  /* ------------------------------------------------------------------ auth --
+   * Development stand-ins mirroring the Express contract in
+   * ../../backend/src/routes/auth.ts. MSW cannot read httpOnly cookies, so the
+   * mock session is kept in document.cookie; the real backend sets sd_access /
+   * sd_refresh itself.
+   */
+
+  http.post("/api/auth/sign-in", async ({ request }) => {
     await delay(LATENCY);
     const body = (await request.json()) as { email?: string; password?: string };
-    if (!body.email || !body.password || body.password.length < 8) {
-      return json({ error: "Invalid email or password", code: "BAD_CREDENTIALS" }, { status: 401 });
+    const user = mockUsers.get((body.email ?? "").toLowerCase());
+    if (!user || user.password !== body.password) {
+      return json({ error: "Invalid email or password.", code: "BAD_CREDENTIALS" }, { status: 401 });
     }
-    return json({
-      token: "mock-jwt-token",
-      user: { id: 1, email: body.email, role: "admin" },
-    });
+    setMockSession(user);
+    return json({ user: publicMockUser(user), expiresAt: new Date(Date.now() + 900_000).toISOString() });
   }),
 
-  /* auth extras for Phase 1 shells (Phase 7 implements them server-side) */
   http.post("/api/auth/sign-up", async ({ request }) => {
     await delay(LATENCY);
     const body = (await request.json()) as { name?: string; email?: string; password?: string };
     if (!body.name || !body.email || !body.password || body.password.length < 8) {
-      return json({ error: "Name, email and an 8+ character password are required" }, { status: 400 });
+      return json(
+        { error: "Name, email and an 8+ character password are required", code: "VALIDATION" },
+        { status: 400 },
+      );
     }
-    db.users.push({
-      id: db.users.length + 1,
-      email: body.email,
+    const email = body.email.toLowerCase();
+    if (mockUsers.has(email)) {
+      return json({ error: "An account already exists for that email.", code: "EMAIL_TAKEN" }, { status: 409 });
+    }
+    const user: MockAuthUser = {
+      id: mockUserId++,
       name: body.name,
+      email,
+      password: body.password,
       role: "customer",
-      status: "ACTIVE",
-    });
-    return json({ ok: true, message: "Account created" }, { status: 201 });
+      status: "active",
+    };
+    mockUsers.set(email, user);
+    return json({ user: publicMockUser(user) }, { status: 201 });
   }),
 
   http.get("/api/auth/me", async () => {
     await delay(LATENCY);
-    return json({ id: 1, email: "admin@safaridesk.app", role: "admin" });
+    const user = currentUserFromCookie();
+    if (!user) return json({ error: "Sign in required.", code: "UNAUTHENTICATED" }, { status: 401 });
+    return json({ user: publicMockUser(user) });
   }),
 
   http.post("/api/auth/refresh", async () => {
     await delay(LATENCY);
-    return json({ token: "mock-jwt-refreshed" });
+    const user = currentUserFromCookie(true);
+    if (!user) return json({ error: "Sign in again.", code: "INVALID_REFRESH" }, { status: 401 });
+    setMockSession(user);
+    return json({ user: publicMockUser(user), expiresAt: new Date(Date.now() + 900_000).toISOString() });
   }),
 
   http.post("/api/auth/sign-out", async () => {
     await delay(LATENCY);
+    clearMockSession();
     return json({ ok: true });
   }),
 
   http.post("/api/auth/forgot-password", async () => {
     await delay(LATENCY * 2);
-    return json({ ok: true, message: "Reset link sent" });
+    // Always succeeds: the endpoint must not reveal which addresses exist.
+    return json({ ok: true });
   }),
 
   http.post("/api/auth/reset-password", async ({ request }) => {
     await delay(LATENCY);
     const body = (await request.json()) as { token?: string; password?: string };
     if (!body.token || !body.password || body.password.length < 8) {
-      return json({ error: "A valid token and a new password are required" }, { status: 400 });
+      return json({ error: "A valid token and a new password are required", code: "INVALID_TOKEN" }, { status: 400 });
     }
     return json({ ok: true });
+  }),
+
+  http.post("/api/auth/invite", async ({ request }) => {
+    await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
+      return json({ error: "Admin role required.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    const body = (await request.json()) as { email?: string; role?: string };
+    if (!body.email || !body.role) {
+      return json({ error: "Validation failed", code: "VALIDATION" }, { status: 400 });
+    }
+    // Dev stand-in only: the real backend emails a hashed single-use link.
+    const token = `mock-invite-${Math.random().toString(36).slice(2)}`;
+    mockInvites.set(token, { email: body.email.toLowerCase(), role: body.role as MockAuthUser["role"] });
+    return json({ ok: true, devToken: token }, { status: 201 });
+  }),
+
+  http.post("/api/auth/accept-invite", async ({ request }) => {
+    await delay(LATENCY);
+    const body = (await request.json()) as { token?: string; name?: string; password?: string };
+    if (!body.token || !body.name || !body.password) {
+      return json({ error: "Invalid invitation", code: "INVALID_INVITE" }, { status: 400 });
+    }
+    const invite = mockInvites.get(body.token);
+    if (!invite) {
+      return json({ error: "This invitation is invalid or has expired.", code: "INVALID_INVITE" }, { status: 400 });
+    }
+    const user: MockAuthUser = {
+      id: mockUserId++,
+      name: body.name,
+      email: invite.email,
+      password: body.password,
+      role: invite.role,
+      status: "active",
+    };
+    mockUsers.set(invite.email, user);
+    mockInvites.delete(body.token);
+    return json({ user: publicMockUser(user) }, { status: 201 });
   }),
 
   /* analytics */

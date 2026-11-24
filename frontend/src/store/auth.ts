@@ -1,53 +1,73 @@
 import { create } from "zustand";
 
+/** Mirrors backend/src/auth/types.ts. */
+export const ROLES = [
+  "super_admin",
+  "admin",
+  "operations",
+  "finance",
+  "agent",
+  "driver",
+  "customer",
+] as const;
+export type AuthRole = (typeof ROLES)[number];
+
 export interface SessionUser {
-  id: number;
+  id: string;
+  name?: string;
   email: string;
-  role: "admin" | "staff";
+  role: AuthRole;
+  status: "active" | "invited" | "disabled";
+  lastLoginAt?: string | null;
 }
 
 interface AuthState {
-  token: string | null;
+  /** Server session (httpOnly cookie). Present only when signed in. */
   user: SessionUser | null;
-  /** False until localStorage has been read; keeps SSR and first client render identical. */
+  /**
+   * Client-side bearer token. Optional and never persisted to localStorage —
+   * the real backend uses cookies; MSW dev mocks may set this instead.
+   */
+  token: string | null;
+  /** False until the stored session has been checked; keeps SSR and first render identical. */
   hydrated: boolean;
-  hydrate: () => void;
-  setSession: (token: string, user: SessionUser) => void;
-  logout: () => void;
+  hydrate: () => Promise<void>;
+  setSession: (user: SessionUser, token?: string | null) => void;
+  setSignedOut: () => void;
+  logout: () => Promise<void>;
 }
 
-const TOKEN_KEY = "sd_token";
-const USER_KEY = "sd_user";
-
-function readStoredUser(): SessionUser | null {
+async function fetchCurrentUser(): Promise<SessionUser | null> {
   try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as SessionUser) : null;
+    const res = await fetch("/api/auth/me", { credentials: "include" });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { user?: SessionUser };
+    return body.user ?? null;
   } catch {
     return null;
   }
 }
 
 /**
- * Server data lives in TanStack Query only; Zustand holds just the auth
- * session and tiny UI state (sidebar), per the frontend guide.
+ * Session state. Access/refresh tokens live in httpOnly cookies set by the API,
+ * so nothing secret is written to localStorage.
  */
 export const useAuth = create<AuthState>((set) => ({
-  token: null,
   user: null,
+  token: null,
   hydrated: false,
-  hydrate: () => {
-    if (typeof window === "undefined") return;
-    set({ token: localStorage.getItem(TOKEN_KEY), user: readStoredUser(), hydrated: true });
+  hydrate: async () => {
+    const user = await fetchCurrentUser();
+    set({ user, hydrated: true });
   },
-  setSession: (token, user) => {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-    set({ token, user, hydrated: true });
-  },
-  logout: () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    set({ token: null, user: null, hydrated: true });
+  setSession: (user, token = null) => set({ user, token, hydrated: true }),
+  setSignedOut: () => set({ user: null, token: null }),
+  logout: async () => {
+    try {
+      await fetch("/api/auth/sign-out", { method: "POST", credentials: "include" });
+    } catch {
+      /* signing out is best-effort; local state clears either way */
+    }
+    set({ user: null, token: null });
   },
 }));

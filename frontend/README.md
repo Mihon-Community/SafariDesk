@@ -206,8 +206,29 @@ horizontal overflow; KPI rows measured 1 column at 360px and 6 at 1920px.
   (prefers-reduced-motion: no-preference)` / `motion-safe:` / `motion-reduce:`.
   Verified with emulated reduce: KPIs/charts render instantly, `animation-name: none`.
 
+## Authentication (Phase 7)
+
+- **Cookies, not localStorage.** `lib/api.ts` sends `credentials: "include"`; the
+  server sets httpOnly `sd_access` / `sd_refresh` cookies (`backend/src/routes/auth.ts`).
+  The store keeps only the user object.
+- **Silent refresh**: a 401 on any non-auth call triggers one shared in-flight
+  `POST /api/auth/refresh`; the request is retried once. If refresh fails the
+  session is cleared.
+- **Route protection**: `proxy.ts` redirects unauthenticated visitors from
+  `/dashboard`, `/bookings`, `/dispatch`, `/payments`, `/alerts`, `/rates`,
+  `/feedback`, `/users`, `/settings` to `/sign-in?next=…`, and signed-in users
+  away from auth pages. `RequireAuth`/`AuthGate` are the client-side companions.
+- **Auth pages** (`components/auth/AuthLayout.tsx`): split-screen park-photo layout,
+  stacked on mobile; Form + zod, password strength meter, show/hide password,
+  inline error and loading states on sign-in / sign-up / forgot / reset.
+- **Sign-out** revokes the server session, clears the TanStack Query cache and
+  disconnects the socket, then lands on `/`.
+- **Backend proxy**: set `BACKEND_URL` (and `NEXT_PUBLIC_USE_MOCKS=false`) and
+  Next rewrites `/api/*` to Express so cookies stay same-origin.
+
 ## Roadmap (UI overhaul prompt)
 
 ~~Phase 2 theming~~ done · ~~Phase 3 landing page~~ done · ~~Phase 4 responsive system~~ done ·
 ~~Phase 5 cards/charts/tables + Python AI sidecar~~ done · ~~Phase 6 animation and motion~~ done ·
-Phase 7 auth (cookies, refresh, reset) · Phase 8 RBAC · Phase 9 guides.
+~~Phase 7 authentication (cookies, refresh, reset)~~ done ·
+Phase 8 RBAC · Phase 9 guides.

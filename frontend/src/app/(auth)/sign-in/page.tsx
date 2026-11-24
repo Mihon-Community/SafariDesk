@@ -1,14 +1,22 @@
 import { Suspense } from "react";
 
 import Login from "@/views/Login";
-import { Skeleton } from "@/components/ui/skeleton";
+import { AuthLayout, AuthLink, AuthLinks } from "@/components/auth/AuthLayout";
 
 export const metadata = { title: "Sign in — SafariDesk" };
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<Skeleton className="mx-auto h-80 w-full max-w-sm" />}>
-      <Login />
-    </Suspense>
+    <AuthLayout
+      title="Run the safari from one dashboard"
+      description="Bookings, dispatch, M-Pesa deposits and guest safety alerts — built for Kenyan tour operators."
+    >
+      <Suspense fallback={null}>
+        <Login />
+      </Suspense>
+      <AuthLinks>
+        No account yet? <AuthLink href="/sign-up">Create one</AuthLink>
+      </AuthLinks>
+    </AuthLayout>
   );
 }
