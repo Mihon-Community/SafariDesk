@@ -49,7 +49,15 @@ interface RequestContext {
   userAgent: string | null;
 }
 
-const STAFF_ROLES: Role[] = ["super_admin", "admin", "operations", "finance", "agent", "driver"];
+const STAFF_ROLES: Role[] = [
+  "super_admin",
+  "admin",
+  "operations",
+  "dispatcher",
+  "finance",
+  "agent",
+  "driver",
+];
 
 export type DeliveryEvent =
   | { kind: "password_reset"; email: string; token: string; expiresAt: Date }

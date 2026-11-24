@@ -25,8 +25,12 @@ export class MemoryRepository implements AuthRepository {
     return null;
   }
 
-  async findUserById(userId: string): Promise<UserRecord | null> {
-    return this.users.get(userId) ?? null;
+  async findUserById(id: string): Promise<UserRecord | null> {
+    return this.users.get(id) ?? null;
+  }
+
+  async listUsers(): Promise<UserRecord[]> {
+    return [...this.users.values()].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
 
   async createUser(
@@ -131,6 +135,11 @@ export class MemoryRepository implements AuthRepository {
 
   async audit(entry: Omit<AuditRecord, "id" | "createdAt">): Promise<void> {
     this.auditLog.push({ ...entry, id: id("aud"), createdAt: new Date() });
+  }
+
+  /** Test helper: full records, used only by the suite. */
+  async debugUsers(): Promise<UserRecord[]> {
+    return [...this.users.values()];
   }
 
   /** Test helper. */

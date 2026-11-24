@@ -15,6 +15,7 @@ export interface AuthRepository {
   // users
   findUserByEmail(email: string): Promise<UserRecord | null>;
   findUserById(id: string): Promise<UserRecord | null>;
+  listUsers(): Promise<UserRecord[]>;
   createUser(user: Omit<UserRecord, "createdAt" | "failedAttempts" | "lockedUntil" | "lastLoginAt">): Promise<UserRecord>;
   updateUser(id: string, patch: Partial<UserRecord>): Promise<UserRecord>;
 

@@ -3,6 +3,7 @@ export const ROLES = [
   "super_admin",
   "admin",
   "operations",
+  "dispatcher",
   "finance",
   "agent",
   "driver",

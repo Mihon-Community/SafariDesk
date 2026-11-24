@@ -9,14 +9,17 @@ import { MemoryRepository } from "./auth/memoryStore";
 import { AuthService } from "./auth/service";
 import { bootstrapAdmin } from "./auth/bootstrap";
 import { authRouter } from "./routes/auth";
-import { requireAdmin } from "./middleware/auth";
+import { requireAdmin, requireAuth, requirePermission } from "./middleware/auth";
 import { errorMiddleware, notFound } from "./middleware/error";
+import { UsersService } from "./auth/users";
+import { usersRouter } from "./routes/users";
 
 export function createApp(
   repo = new MemoryRepository(),
   service?: AuthService,
 ): { app: Express; service: AuthService } {
   const authService = service ?? new AuthService(repo);
+  const usersService = new UsersService(repo);
   const app = express();
 
   app.disable("x-powered-by");
@@ -50,6 +53,17 @@ export function createApp(
   );
 
   app.use("/api/auth", authRouter(authService, requireAdmin(authService)));
+
+  // User management: auth + per-route permission gates (Phase 8 RBAC).
+  app.use(
+    "/api/users",
+    usersRouter(
+      usersService,
+      requireAuth(authService),
+      requirePermission("users:read"),
+      requirePermission("users:manage"),
+    ),
+  );
   // Everything after auth is a placeholder until the resource routers land.
   app.use("/api", notFound);
   app.use(errorMiddleware);

@@ -1,7 +1,8 @@
-import type { NextFunction, Request, Response } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 
 import type { AuthService } from "../auth/service";
 import { AuthError } from "../auth/service";
+import { hasPermission, type Permission } from "../auth/permissions";
 import { accessTokenFrom } from "../routes/auth";
 
 declare global {
@@ -34,5 +35,23 @@ export function requireAdmin(service: AuthService) {
       throw new AuthError(403, "FORBIDDEN", "Admin role required.");
     }
     return user.id;
+  };
+}
+
+/**
+ * Permission gate. Pair with requireAuth so req.user is populated; responds
+ * 403 with the standard JSON error body when the role lacks the permission.
+ */
+export function requirePermission(permission: Permission): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      next(new AuthError(401, "UNAUTHENTICATED", "Sign in required."));
+      return;
+    }
+    if (!hasPermission(req.user.role, permission)) {
+      next(new AuthError(403, "FORBIDDEN", `Missing permission ${permission}.`));
+      return;
+    }
+    next();
   };
 }

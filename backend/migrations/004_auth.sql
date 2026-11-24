@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   email           CITEXT NOT NULL UNIQUE,
   password_hash   TEXT,
   role            TEXT NOT NULL DEFAULT 'customer'
-                  CHECK (role IN ('super_admin','admin','operations','finance','agent','driver','customer')),
+                  CHECK (role IN ('super_admin','admin','operations','dispatcher','finance','agent','driver','customer')),
   status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','invited','disabled')),
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until    TIMESTAMPTZ,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS invites (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email       CITEXT NOT NULL,
   role        TEXT NOT NULL
-              CHECK (role IN ('super_admin','admin','operations','finance','agent','driver')),
+              CHECK (role IN ('super_admin','admin','operations','dispatcher','finance','agent','driver')),
   token_hash  TEXT NOT NULL UNIQUE,
   invited_by  UUID REFERENCES users(id) ON DELETE SET NULL,
   expires_at  TIMESTAMPTZ NOT NULL,

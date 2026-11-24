@@ -226,9 +226,28 @@ horizontal overflow; KPI rows measured 1 column at 360px and 6 at 1920px.
 - **Backend proxy**: set `BACKEND_URL` (and `NEXT_PUBLIC_USE_MOCKS=false`) and
   Next rewrites `/api/*` to Express so cookies stay same-origin.
 
+## Roles and permissions (Phase 8)
+
+- One permission catalogue (`backend/src/auth/permissions.ts`, mirrored in
+  `frontend/src/lib/permissions.ts`). A vitest sync test imports both and fails
+  on any drift; every listed permission is asserted to be used by a role.
+- Backend gates: `requireAuth` populates `req.user`; `requirePermission('x:y')`
+  returns the standard `{error, code}` 403 body. `/api/users` uses
+  `users:read` for listing and `users:manage` for PATCH / password resets.
+- Frontend: `<Can permission="…" any>` plus `usePermissions()`/`usePermission()`
+  gate the sidebar, bottom tabs and dashboard widgets; each role gets its own
+  dashboard headline, e.g. customer → upcoming trips, driver → assignments,
+  finance → revenue, operations/dispatcher → live dispatch.
+- `/users` admin table (`features/users/UsersAdmin.tsx`): searchable data table
+  with inline role select, activate/deactivate, "send password reset" and an
+  invite form (email + staff role). Self-lockout guards refuse changing your own
+  role or disabling yourself.
+- Migration `005_rbac.sql` maps legacy `staff` rows to `operations` and tightens
+  the role CHECK constraints; `dispatcher` is a first-class role.
+
 ## Roadmap (UI overhaul prompt)
 
 ~~Phase 2 theming~~ done · ~~Phase 3 landing page~~ done · ~~Phase 4 responsive system~~ done ·
 ~~Phase 5 cards/charts/tables + Python AI sidecar~~ done · ~~Phase 6 animation and motion~~ done ·
-~~Phase 7 authentication (cookies, refresh, reset)~~ done ·
-Phase 8 RBAC · Phase 9 guides.
+~~Phase 7 authentication (cookies, refresh, reset)~~ done · ~~Phase 8 roles & permissions~~ done ·
+Phase 9 guides.

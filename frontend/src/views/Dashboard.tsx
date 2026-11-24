@@ -20,6 +20,8 @@ import { Money } from "@/components/Money";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CardsSkeleton, ErrorState } from "@/components/States";
 import { KpiCard } from "@/components/KpiCard";
+import { Can } from "@/components/Can";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Stagger, StaggerItem } from "@/components/motion/Stagger";
 import { RevenueRangeChart } from "@/components/charts/RevenueRangeChart";
 import { ForecastChart } from "@/components/charts/ForecastChart";
@@ -38,7 +40,20 @@ import {
 } from "@/hooks/useAnalytics";
 import { useBookings } from "@/hooks/useBookings";
 
+/** Each role gets its own dashboard headline (widgets are filtered by permission). */
+const ROLE_BLURB: Record<string, string> = {
+  customer: "Your upcoming trips, documents and payments.",
+  driver: "Today's assignments and your schedule.",
+  finance: "Revenue collected, deposits and payment methods.",
+  dispatcher: "Live dispatch: unallocated trips, drivers and occupancy.",
+  operations: "Bookings, dispatch and driver status at a glance.",
+  agent: "Your quotes, bookings and guest feedback.",
+  admin: "Everything across bookings, money and people.",
+  super_admin: "Full operational and system overview.",
+};
+
 export default function Dashboard() {
+  const { role, canAny } = usePermissions();
   const summary = useQuery({
     queryKey: ["summary"],
     queryFn: () => api<AnalyticsSummary>("/api/analytics/summary"),
@@ -82,7 +97,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Bookings, revenue and dispatch at a glance."
+        description={ROLE_BLURB[role ?? ""] ?? "Bookings, revenue and dispatch at a glance."}
       />
 
       {summary.isLoading && <CardsSkeleton />}
@@ -146,6 +161,7 @@ export default function Dashboard() {
           </Stagger>
 
           {/* Revenue + status */}
+<Can permission={["bookings:read", "payments:read"]} any>
           <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             <Card className="3xl:col-span-2">
               <CardHeader className="p-4 pb-2">
@@ -176,8 +192,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          </Can>
 
           {/* Demand forecast + park mix + occupancy */}
+<Can permission={["reports:read", "bookings:read", "dispatch:read"]} any>
           <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             <Card>
               <CardHeader className="p-4 pb-2">
@@ -218,8 +236,10 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          </Can>
 
           {/* Payments + drivers + departures */}
+<Can permission={["payments:read", "dispatch:read", "drivers:read", "bookings:read"]} any>
           <div className="stagger-motion grid gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             <Card>
               <CardHeader className="p-4 pb-2">
@@ -293,6 +313,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+          </Can>
 
           <p className="text-xs text-muted-foreground">
             Deposit balance outstanding: <Money value={data.depositsDue} plain /> (

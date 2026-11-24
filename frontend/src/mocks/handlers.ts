@@ -629,6 +629,56 @@ export const handlers = [
     return json({ user: publicMockUser(user) }, { status: 201 });
   }),
 
+  /* ------------------------- admin user management ------------------------- */
+
+  http.get("/api/users", async () => {
+    await delay(LATENCY);
+    if (!currentUserFromCookie() || !["admin", "super_admin"].includes(currentUserFromCookie()!.role)) {
+      return json({ error: "Missing permission users:read.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    return json({ users: [...mockUsers.values()].map(publicMockUser) });
+  }),
+
+  http.patch("/api/users/:id", async ({ params, request }) => {
+    await delay(LATENCY);
+    const actor = currentUserFromCookie();
+    if (!actor || !["admin", "super_admin"].includes(actor.role)) {
+      return json({ error: "Missing permission users:manage.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    const body = (await request.json()) as { role?: string; status?: string };
+    const target = [...mockUsers.values()].find((u) => String(u.id) === params["id"]);
+    if (!target) return json({ error: "User not found.", code: "NOT_FOUND" }, { status: 404 });
+    if (String(target.id) === String(actor.id)) {
+      if (body.status && body.status !== "active") {
+        return json(
+          { error: "You cannot disable your own account.", code: "CANNOT_DISABLE_SELF" },
+          { status: 400 },
+        );
+      }
+      if (body.role && body.role !== target.role) {
+        return json(
+          { error: "You cannot change your own role.", code: "CANNOT_CHANGE_OWN_ROLE" },
+          { status: 400 },
+        );
+      }
+    }
+    if (body.role) target.role = body.role as MockAuthUser["role"];
+    if (body.status) target.status = body.status as MockAuthUser["status"];
+    return json({ user: publicMockUser(target) });
+  }),
+
+  http.post("/api/users/:id/password-reset", async ({ params }) => {
+    await delay(LATENCY);
+    const actor = currentUserFromCookie();
+    if (!actor || !["admin", "super_admin"].includes(actor.role)) {
+      return json({ error: "Missing permission users:manage.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    const target = [...mockUsers.values()].find((u) => String(u.id) === params["id"]);
+    if (!target) return json({ error: "User not found.", code: "NOT_FOUND" }, { status: 404 });
+    // Dev stand-in: the real backend emails a single-use reset link.
+    return json({ ok: true });
+  }),
+
   /* analytics */
   http.get("/api/analytics/summary", async () => {
     await delay(LATENCY);

@@ -18,14 +18,19 @@ import {
   Search,
   Star,
   Truck,
+  Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
 import type { SafetyAlert } from "@/lib/types";
+import type { Permission } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permissions";
 import { formatDateTime, initials } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { useAuth } from "@/store/auth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useUiStore, loadStoredSidebar } from "@/store/ui";
 import { useRealtime } from "@/hooks/useRealtime";
 import { Button } from "@/components/ui/button";
@@ -41,24 +46,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 
-const NAV = [
+const NAV: Array<{ to: string; label: string; icon: LucideIcon; permission?: Permission }> = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/bookings", label: "Bookings", icon: CalendarRange },
-  { to: "/bookings/new", label: "New booking", icon: PlusCircle },
-  { to: "/dispatch", label: "Dispatch", icon: Truck },
-  { to: "/payments", label: "Payments", icon: ReceiptText },
-  { to: "/alerts", label: "Alerts", icon: BellRing },
-  { to: "/rates", label: "Rates", icon: Star },
-  { to: "/feedback", label: "Feedback", icon: Star },
+  { to: "/bookings", label: "Bookings", icon: CalendarRange, permission: "bookings:read" },
+  {
+    to: "/bookings/new",
+    label: "New booking",
+    icon: PlusCircle,
+    permission: "bookings:write",
+  },
+  { to: "/dispatch", label: "Dispatch", icon: Truck, permission: "dispatch:read" },
+  { to: "/payments", label: "Payments", icon: ReceiptText, permission: "payments:read" },
+  { to: "/alerts", label: "Alerts", icon: BellRing, permission: "alerts:read" },
+  { to: "/rates", label: "Rates", icon: Star, permission: "rates:read" },
+  { to: "/feedback", label: "Feedback", icon: Star, permission: "feedback:read" },
+  { to: "/users", label: "Users", icon: Users, permission: "users:read" },
 ];
 
-/** Phones get the five most-used routes as a bottom tab bar. */
-const TABS = [
+/** Phones get the five most-used routes as a bottom tab bar, filtered by role. */
+const TABS: Array<{ to: string; label: string; icon: LucideIcon; permission?: Permission }> = [
   { to: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { to: "/bookings", label: "Bookings", icon: CalendarRange },
-  { to: "/bookings/new", label: "New", icon: PlusCircle },
-  { to: "/dispatch", label: "Dispatch", icon: Truck },
-  { to: "/alerts", label: "Alerts", icon: BellRing },
+  { to: "/bookings", label: "Bookings", icon: CalendarRange, permission: "bookings:read" },
+  { to: "/bookings/new", label: "New", icon: PlusCircle, permission: "bookings:write" },
+  { to: "/dispatch", label: "Dispatch", icon: Truck, permission: "dispatch:read" },
+  { to: "/alerts", label: "Alerts", icon: BellRing, permission: "alerts:read" },
 ];
 
 function isActive(pathname: string, to: string) {
@@ -77,9 +88,11 @@ function NavItems({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const { can } = usePermissions();
   return (
     <nav className="flex flex-col gap-1 px-3">
-      {NAV.map(({ to, label, icon: Icon }) => {
+      {NAV.filter((item) => !item.permission || can(item.permission)).map(
+        ({ to, label, icon: Icon }) => {
         const active = isActive(pathname, to);
         return (
           <Link
@@ -252,6 +265,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     qc.clear();
     router.replace("/");
   }
+
+  const visibleTabs = TABS.filter((item) => !item.permission || hasPermission(user?.role ?? null, item.permission));
 
   // Restore the persisted sidebar preference after mount (avoids a hydration mismatch).
   useEffect(() => {
@@ -456,8 +471,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-30 border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
         aria-label="Primary"
       >
-        <div className="grid grid-cols-5">
-          {TABS.map(({ to, label, icon: Icon }) => {
+        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
+          {visibleTabs.map(({ to, label, icon: Icon }) => {
             const active = isActive(pathname, to);
             return (
               <Link
