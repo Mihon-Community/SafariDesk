@@ -434,7 +434,8 @@ interface MockAuthUser {
   email: string;
   password: string;
   role: "super_admin" | "admin" | "operations" | "finance" | "agent" | "driver" | "customer";
-  status: "active" | "invited" | "disabled";
+  status: "active" | "invited" | "pending" | "disabled";
+  requestedRole?: MockAuthUser["role"] | null;
 }
 
 const ACCESS_COOKIE = "sd_access";
@@ -463,6 +464,10 @@ function seedMockUsers() {
       role: "customer",
       status: "active",
     },
+    { id: 3, name: "Demo Driver", email: "driver@safaridesk.app", password: "password123", role: "driver", status: "active" },
+    { id: 4, name: "Demo Agent", email: "agent@safaridesk.app", password: "password123", role: "agent", status: "active" },
+    { id: 5, name: "Demo Operations", email: "ops@safaridesk.app", password: "password123", role: "operations", status: "active" },
+    { id: 6, name: "Demo Finance", email: "finance@safaridesk.app", password: "password123", role: "finance", status: "active" },
   ];
   for (const user of seeds) mockUsers.set(user.email, user);
 }
@@ -475,6 +480,7 @@ function publicMockUser(user: MockAuthUser) {
     email: user.email,
     role: user.role,
     status: user.status,
+    requestedRole: user.requestedRole ?? null,
     lastLoginAt: null,
   };
 }
@@ -484,6 +490,7 @@ function setMockSession(user: MockAuthUser) {
   mockSessionIds.set(ACCESS_COOKIE, String(user.id));
   document.cookie = `${ACCESS_COOKIE}=${encodeURIComponent(String(user.id))}; Path=/; SameSite=Lax`;
   document.cookie = `${REFRESH_COOKIE}=${encodeURIComponent(`refresh-${user.id}`)}; Path=/api/auth; SameSite=Lax`;
+  document.cookie = `sd_role=${encodeURIComponent(user.role)}; Path=/; SameSite=Lax`;
 }
 
 const mockSessionIds = new Map<string, string>();
@@ -507,6 +514,7 @@ function currentUserFromCookie(anyCookie = false): MockAuthUser | undefined {
 function clearMockSession() {
   document.cookie = `${ACCESS_COOKIE}=; Path=/; Max-Age=0`;
   document.cookie = `${REFRESH_COOKIE}=; Path=/api/auth; Max-Age=0`;
+  document.cookie = "sd_role=; Path=/; Max-Age=0";
   mockSessionIds.clear();
 }
 
@@ -525,33 +533,58 @@ export const handlers = [
     if (!user || user.password !== body.password) {
       return json({ error: "Invalid email or password.", code: "BAD_CREDENTIALS" }, { status: 401 });
     }
+    if (user.status === "pending") {
+      return json(
+        { error: "Your access request is awaiting admin approval.", code: "PENDING_APPROVAL" },
+        { status: 403 },
+      );
+    }
     setMockSession(user);
     return json({ user: publicMockUser(user), expiresAt: new Date(Date.now() + 900_000).toISOString() });
   }),
 
   http.post("/api/auth/sign-up", async ({ request }) => {
     await delay(LATENCY);
-    const body = (await request.json()) as { name?: string; email?: string; password?: string };
+    const body = (await request.json()) as {
+      name?: string;
+      email?: string;
+      password?: string;
+      requestedRole?: string;
+    };
     if (!body.name || !body.email || !body.password || body.password.length < 8) {
       return json(
         { error: "Name, email and an 8+ character password are required", code: "VALIDATION" },
         { status: 400 },
       );
     }
+    const requested = (body.requestedRole ?? "customer") as MockAuthUser["role"];
+    if (requested === "admin" || requested === "super_admin") {
+      return json(
+        { error: "That role cannot be requested at sign-up.", code: "FORBIDDEN_ROLE" },
+        { status: 403 },
+      );
+    }
     const email = body.email.toLowerCase();
     if (mockUsers.has(email)) {
       return json({ error: "An account already exists for that email.", code: "EMAIL_TAKEN" }, { status: 409 });
     }
+    const needsApproval = ["driver", "agent", "operations", "finance"].includes(requested);
     const user: MockAuthUser = {
       id: mockUserId++,
       name: body.name,
       email,
       password: body.password,
-      role: "customer",
-      status: "active",
+      role: needsApproval ? "customer" : requested,
+      status: needsApproval ? "pending" : "active",
+      requestedRole: needsApproval ? requested : null,
     };
     mockUsers.set(email, user);
-    return json({ user: publicMockUser(user) }, { status: 201 });
+    const res = json(
+      { user: publicMockUser(user), pending: needsApproval },
+      { status: 201 },
+    );
+    if (!needsApproval) setMockSession(user);
+    return res;
   }),
 
   http.get("/api/auth/me", async () => {
@@ -637,6 +670,41 @@ export const handlers = [
       return json({ error: "Missing permission users:read.", code: "FORBIDDEN" }, { status: 403 });
     }
     return json({ users: [...mockUsers.values()].map(publicMockUser) });
+  }),
+
+  http.get("/api/users/pending", async () => {
+    await delay(LATENCY);
+    const access = readCookie(ACCESS_COOKIE);
+    const current = access ? [...mockUsers.values()].find((u) => String(u.id) === access) : undefined;
+    if (!current || !["admin", "super_admin"].includes(current.role)) {
+      return json({ error: "Missing permission users:read.", code: "FORBIDDEN" }, { status: 403 });
+    }
+    return json({
+      users: [...mockUsers.values()].filter((u) => u.status === "pending").map(publicMockUser),
+    });
+  }),
+
+  http.post("/api/users/:id/approve", async ({ params }) => {
+    await delay(LATENCY);
+    const target = [...mockUsers.values()].find((u) => String(u.id) === String(params.id));
+    if (!target || target.status !== "pending" || !target.requestedRole) {
+      return json({ error: "That account has no pending request.", code: "INVALID_REQUEST" }, { status: 400 });
+    }
+    target.role = target.requestedRole;
+    target.status = "active";
+    target.requestedRole = null;
+    return json({ user: publicMockUser(target) });
+  }),
+
+  http.post("/api/users/:id/reject", async ({ params }) => {
+    await delay(LATENCY);
+    const target = [...mockUsers.values()].find((u) => String(u.id) === String(params.id));
+    if (!target || target.status !== "pending") {
+      return json({ error: "That account has no pending request.", code: "INVALID_REQUEST" }, { status: 400 });
+    }
+    target.status = "disabled";
+    target.requestedRole = null;
+    return json({ user: publicMockUser(target) });
   }),
 
   http.patch("/api/users/:id", async ({ params, request }) => {

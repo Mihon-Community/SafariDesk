@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import { createColumnHelper } from "@tanstack/react-table";
-import { KeyRound, MoreVertical, UserPlus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, KeyRound, MoreVertical, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { api, ApiError } from "@/lib/api";
@@ -32,7 +33,8 @@ interface AdminUser {
   name: string;
   email: string;
   role: Role;
-  status: "active" | "invited" | "disabled";
+  status: "active" | "invited" | "pending" | "disabled";
+  requestedRole?: Role | null;
   lastLoginAt: string | null;
   createdAt: string;
 }
@@ -47,6 +49,27 @@ export function UsersAdmin({ users }: { users: AdminUser[] }) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("operations");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const qc = useQueryClient();
+  const pendingQuery = useQuery({
+    queryKey: ["users", "pending"],
+    queryFn: () => api<{ users: AdminUser[] }>("/api/users/pending"),
+  });
+
+  async function decide(id: string, action: "approve" | "reject") {
+    setBusyId(id);
+    try {
+      await api(`/api/users/${id}/${action}`, { method: "POST", body: {} });
+      toast.success(action === "approve" ? "Access granted" : "Request rejected");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["users", "pending"] }),
+        qc.invalidateQueries({ queryKey: ["users"] }),
+      ]);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Update failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function patch(id: string, body: { role?: Role; status?: AdminUser["status"] }, label: string) {
     setBusyId(id);
@@ -199,6 +222,38 @@ export function UsersAdmin({ users }: { users: AdminUser[] }) {
           </Button>
         }
       />
+
+      {pendingQuery.data && pendingQuery.data.users.length > 0 && (
+        <div className="space-y-2 rounded-xl border bg-card p-4">
+          <p className="text-sm font-medium">
+            Pending requests ({pendingQuery.data.users.length})
+          </p>
+          <ul className="divide-y">
+            {pendingQuery.data.users.map((user) => (
+              <li key={user.id} className="flex flex-wrap items-center gap-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{user.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                </div>
+                <Badge>{user.requestedRole ?? "pending"}</Badge>
+                <div className="flex gap-1.5">
+                  <Button size="sm" onClick={() => void decide(user.id, "approve")} disabled={busyId === user.id}>
+                    <Check className="h-3.5 w-3.5" aria-hidden /> Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void decide(user.id, "reject")}
+                    disabled={busyId === user.id}
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden /> Reject
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {inviteOpen && (
         <form onSubmit={sendInvite} className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-end">

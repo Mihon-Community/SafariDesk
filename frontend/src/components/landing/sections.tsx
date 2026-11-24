@@ -192,7 +192,18 @@ export function HowItWorks() {
           </h2>
         </Reveal>
 
-        <ol className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="relative mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* animated route line connecting the steps */}
+          <svg
+            aria-hidden
+            viewBox="0 0 1000 24"
+            preserveAspectRatio="none"
+            className="pointer-events-none absolute -top-6 left-0 hidden h-6 w-full lg:block"
+          >
+            <path d="M10 18 C 200 2, 420 2, 500 12 C 580 22, 820 22, 990 8" fill="none" stroke="var(--primary)" strokeWidth="2.5" className="route-line" />
+            <circle cx="10" cy="18" r="4" fill="var(--primary)" />
+            <circle cx="990" cy="8" r="4" fill="var(--accent)" />
+          </svg>
           {STEPS.map((step, i) => (
             <Reveal key={step.title} delay={i * 0.1}>
               <li className="relative rounded-xl border bg-card p-4 shadow-sm">
@@ -278,18 +289,19 @@ export function Testimonials() {
             Built with teams who run trips daily
           </h2>
         </Reveal>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {TESTIMONIALS.map((t, i) => (
-            <Reveal key={t.name} delay={i * 0.08}>
-              <figure className="rounded-xl border bg-card p-5 shadow-sm">
+        {/* gentle marquee (pauses on hover; static under reduced motion) */}
+        <div className="marquee mt-10 overflow-hidden">
+          <div className="marquee-track flex w-max gap-5 pr-5">
+            {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
+              <figure key={`${t.name}-${i}`} className="w-72 shrink-0 rounded-xl border bg-card p-5 shadow-sm">
                 <blockquote className="text-sm leading-relaxed">“{t.quote}”</blockquote>
                 <figcaption className="mt-4">
                   <p className="font-medium">{t.name}</p>
                   <p className="text-xs text-muted-foreground">{t.role}</p>
                 </figcaption>
               </figure>
-            </Reveal>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>

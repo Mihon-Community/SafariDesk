@@ -69,5 +69,7 @@ export const useAuth = create<AuthState>((set) => ({
       /* signing out is best-effort; local state clears either way */
     }
     set({ user: null, token: null });
+    // The proxy reads this non-sensitive hint; clear it with the session.
+    document.cookie = "sd_role=; Path=/; Max-Age=0";
   },
 }));

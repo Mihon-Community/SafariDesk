@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { Permission, Role } from "./lib/permissions";
 import { hasPermission } from "./lib/permissions";
+import { ROLE_HOME } from "./lib/roles";
 
 /**
  * Route protection. Runs before the page renders:
@@ -27,18 +28,6 @@ const ROUTE_PERMISSION: ReadonlyArray<readonly [string, Permission]> = [
   ["/driver", "dispatch:read"],
   ["/my-trips", "concierge:use"],
 ];
-
-/** Where each role lands after sign-in. */
-export const ROLE_HOME: Record<Role, string> = {
-  super_admin: "/dashboard",
-  admin: "/dashboard",
-  operations: "/dispatch",
-  dispatcher: "/dispatch",
-  finance: "/payments",
-  agent: "/bookings",
-  driver: "/driver",
-  customer: "/my-trips",
-};
 
 function roleHome(role: string | undefined): string {
   return (role && ROLE_HOME[role as Role]) || "/dashboard";

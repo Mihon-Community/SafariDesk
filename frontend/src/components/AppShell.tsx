@@ -8,10 +8,12 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   BellRing,
   CalendarRange,
+  CarFront,
   ChevronsLeft,
   ChevronsRight,
   LayoutDashboard,
   LogOut,
+  Luggage,
   Menu,
   PlusCircle,
   ReceiptText,
@@ -63,6 +65,8 @@ const NAV: Array<{ to: string; label: string; icon: LucideIcon; permission?: Per
   { to: "/rates", label: "Rates", icon: Star, permission: "rates:read" },
   { to: "/feedback", label: "Feedback", icon: Star, permission: "feedback:read" },
   { to: "/users", label: "Users", icon: Users, permission: "users:read" },
+  { to: "/driver", label: "Driver view", icon: CarFront, permission: "dispatch:read" },
+  { to: "/my-trips", label: "My trips", icon: Luggage, permission: "concierge:use" },
 ];
 
 /** Phones get the five most-used routes as a bottom tab bar, filtered by role. */
