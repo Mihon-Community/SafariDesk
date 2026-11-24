@@ -43,14 +43,24 @@ components.
 npm run dev        # http://localhost:3000
 npm run build / start
 npm run typecheck  # tsc --noEmit
+npm run lint       # palette contrast contracts + tsc
 ```
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_USE_MOCKS` | `true` (.env) | MSW service-worker mocks; never enable in production builds |
+| `NEXT_PUBLIC_USE_MOCKS` | `true` (.env) | MSW service-worker mocks; only mounted in `next dev`, never in a production server |
 | `BACKEND_URL` | unset | with mocks off, `/api/*` is rewritten to this origin (same-origin cookies) |
 | `NEXT_PUBLIC_API_URL` | unset | absolute API base when calling cross-origin |
 | `NEXT_PUBLIC_SOCKET_URL` | unset | socket.io origin |
+
+## Route protection
+
+Guards live in **`src/proxy.ts`** (Next only picks up proxy/middleware next to
+`app/` when `src/` exists). It redirects unauthenticated visitors to
+`/sign-in?next=…`, sends signed-in users away from auth pages, and applies a
+role-aware UX guard: the backend sets a non-sensitive `sd_role` cookie next to
+`sd_access`, and the proxy sends users opening a route their role cannot use to
+that role's home (`lib/roles.ts`). API routes remain the source of truth.
 
 `msw init public/` regenerates `mockServiceWorker.js`. Turbopack needs the
 `resolveAlias`/`webpack` entry in `next.config.ts` because `msw/browser` sets
@@ -96,24 +106,45 @@ the zustand theme store owns `[data-theme]`. Palette changes crossfade through
   default mode only — `popLayout` breaks RSC pages), `.stagger-motion` CSS stagger,
   all gated by `prefers-reduced-motion`.
 
-## Landing page, 3D hero and images
+## Landing page and hero
 
-`(marketing)` renders the landing page with `components/landing/Hero.tsx` (React Three
-Fiber savannah, DPR capped at 1.5, pauses off-screen) inside `HeroScene`, lazy-loaded
-with `next/dynamic({ ssr:false })`. Static hero image fallback on low-power devices,
-WebGL failure or `prefers-reduced-motion`; `Reveal` provides scroll reveals.
+The hero is deliberately lightweight — no three.js. The park photograph
+(`public/images/hero/`) renders via `next/image` (`priority`, `fill`,
+`sizes="100vw"`, blur placeholder) with a slow Ken Burns zoom, a theme-tinted
+readability gradient, parallax SVG savannah silhouettes (`currentColor`), a
+glowing sun/moon disc and gliding birds; the headline staggers in word by word.
+Everything motion-related (zoom, parallax, birds, testimonial marquee, route
+line) is disabled under `prefers-reduced-motion`.
 
-Images live in `public/images/{hero,parks,attractions}`; every file's source URL, author
-and licence is recorded in `public/images/CREDITS.md`. Never hotlink; keep files
-optimised (max 2560 px) and give each an `alt`.
+Images live in `public/images/{hero,parks,attractions}`; every file's source
+URL, author and licence is recorded in `public/images/CREDITS.md`. Never
+hotlink; keep files optimised (max 2560 px) and give each an `alt`.
+
+Client JS for `/` dropped from a 924 KB largest chunk (three.js) to 447 KB
+after the rewrite (raw build output).
 
 ## RBAC on the client
 
 - Permissions mirror `backend/src/auth/permissions.ts`; the backend sync test fails on drift.
 - `usePermissions()` / `usePermission(p)` expose the current role's set;
   `<Can permission="payments:refund" any>` gates widgets, nav entries and bulk actions.
-- `proxy.ts` handles redirects; `RequireAuth`/`AuthGate` are the client companions.
-- Sign-out revokes the cookie session, clears the Query cache and disconnects the socket.
+- `src/proxy.ts` handles redirects; `RequireAuth`/`AuthGate` are the client companions.
+- Sign-out revokes the cookie session, clears the Query cache, disconnects the socket
+  and clears the `sd_role` hint cookie.
+
+## Sign up / sign in / role homes
+
+- `/sign-up` is two steps: an accessible role radio grid (Traveller live;
+  Driver/Sales/Operations/Finance queued as pending), then the form. The backend
+  never accepts `admin`/`super_admin` at self-signup (`403 FORBIDDEN_ROLE`) and
+  stores pending requesters as `role=customer, status=pending, requested_role=…`.
+- `/sign-in` has a Traveller/Driver/Staff/Admin segmented control that only sets
+  helper text and expectations; the account's real role decides the landing page
+  (`lib/roles.ts`) and a mismatch shows an informational toast.
+- Homes: admin/super_admin → `/dashboard`, operations/dispatcher → `/dispatch`,
+  finance → `/payments`, agent → `/bookings`, driver → `/driver`, customer →
+  `/my-trips`. Dev-only demo quick-fill buttons sit under the form outside
+  production.
 
 ## Testing
 

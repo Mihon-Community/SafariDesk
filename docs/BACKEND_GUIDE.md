@@ -12,8 +12,17 @@ ADMIN_EMAIL=admin@safaridesk.app ADMIN_PASSWORD=password123 npm run dev   # :300
 npm run typecheck && npm test      # vitest + supertest, memory store
 ```
 
-Without `DATABASE_URL` the auth store is in-memory (resets on restart). With it, apply
-`migrations/*.sql` in order against Postgres.
+**Postgres (optional):** set `DATABASE_URL`, then
+
+```bash
+npm run migrate        # applies migrations/*.sql in order into schema_migrations
+npm run seed:demo      # one demo user per role (refuses when NODE_ENV=production)
+npm run dev            # logs "PgRepository" instead of "MemoryRepository"
+TEST_DATABASE_URL=… npm test   # additionally runs tests/pg.test.ts against Postgres
+```
+
+Without `DATABASE_URL` the auth store is in-memory (resets on restart). With it,
+apply `migrations/*.sql` in order against Postgres via `npm run migrate`.
 
 ## Auth flow
 
@@ -89,7 +98,7 @@ The frontend mirror lives in `frontend/src/lib/permissions.ts`;
 
 | Endpoint                       | Body                      | Success                                     | Errors                                            |
 | ------------------------------ | ------------------------- | ------------------------------------------- | ------------------------------------------------- |
-| `POST /auth/sign-up`         | `{name,email,password}` | `201 {user}`                              | 400 VALIDATION, 409 EMAIL_TAKEN                   |
+| `POST /auth/sign-up` | `{name,email,password,requestedRole?,phone?,licenceNumber?,vehicleReg?,company?}` | `201 {user,pending,tokens→cookies}` | 400 VALIDATION, 403 FORBIDDEN_ROLE (admin/super_admin), 409 EMAIL_TAKEN |
 | `POST /auth/sign-in`         | `{email,password}`      | `200 {user, expiresAt}` + cookies         | 401 BAD_CREDENTIALS, 423 LOCKED, 429 RATE_LIMITED |
 | `POST /auth/refresh`         | — (cookie)               | `200 {user, expiresAt}` + rotated cookies | 401 INVALID_REFRESH, SESSION_REUSED               |
 | `POST /auth/sign-out`        | —                        | `200 {ok:true}`, cookies cleared          | —                                                |
@@ -105,7 +114,15 @@ The frontend mirror lives in `frontend/src/lib/permissions.ts`;
 | ---------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `GET /users`                     | `users:read`   | `{users:[{id,name,email,role,status,lastLoginAt,createdAt}]}`                                                      |
 | `PATCH /users/:id`               | `users:manage` | `{role?,status?}` → `{user}`; self-change refused (400 CANNOT_*), super_admin grant → 403 SUPER_ADMIN_REQUIRED |
-| `POST /users/:id/password-reset` | `users:manage` | issues a single-use link → `{ok:true}`                                                                            |
+| `POST /users/:id/password-reset` | `users:manage` | issues a single-use link → `{ok:true}` |
+| `GET /users/pending` | `users:read` | pending staff-role requests → `{users:[…]}` |
+| `POST /users/:id/approve` | `users:manage` | grant requested role, activate, notify → `{user}` |
+| `POST /users/:id/reject` | `users:manage` | disable account, revoke sessions, notify → `{user}` |
+
+Self-signup roles: `customer` is active and signed in immediately; `driver`,
+`agent`, `operations`, `finance` are stored as `role=customer, status=pending,
+requested_role=<role>` and cannot sign in (`403 PENDING_APPROVAL`) until an admin
+approves them.
 
 Sign-in example:
 

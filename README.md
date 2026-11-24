@@ -13,10 +13,15 @@ cookie auth + RBAC (Phase 7–8) · MSW mocks until the domain backend runs.
 # Frontend (mocks on by default)
 cd frontend && npm install && npm run dev        # http://localhost:3000
 
-# Backend API (auth/RBAC only; domain routes are mocked)
+# Backend API (auth/RBAC; domain routes are mocked)
 cd backend && npm install
 ADMIN_EMAIL=admin@safaridesk.app ADMIN_PASSWORD=password123 npm run dev   # :3001
 npm test                                          # vitest + supertest
+
+# Same backend on Postgres
+DATABASE_URL=postgres://… npm run migrate
+npm run seed:demo                                 # one demo user per role
+TEST_DATABASE_URL=postgres://… npm test           # also runs tests/pg.test.ts
 
 # AI service (Python)
 cd ai && python -m uvicorn app:app --reload       # see ai/README
@@ -27,13 +32,17 @@ Point the frontend at the real API: `NEXT_PUBLIC_USE_MOCKS=false`
 
 ### Demo credentials (dev only)
 
-| Role | Email | Password |
-|---|---|---|
-| admin | `admin@safaridesk.app` | `password123` |
-| customer (mock) | `amina@example.com` | `password123` |
+Password `password123` for all of these; staff sign-ups stay pending until an
+admin approves them on **Users → Pending requests**.
 
-Other roles (`operations`, `dispatcher`, `finance`, `agent`, `driver`) are created by
-an admin through **Users → Invite**.
+| Role | Email | Lands on |
+|---|---|---|
+| admin / super_admin | `admin@safaridesk.app` (super_admin via invite) | `/dashboard` |
+| operations / dispatcher | `ops@safaridesk.app` | `/dispatch` |
+| finance | `finance@safaridesk.app` | `/payments` |
+| agent | `agent@safaridesk.app` | `/bookings` |
+| driver | `driver@safaridesk.app` | `/driver` |
+| customer | `amina@example.com` | `/my-trips` |
 
 ## Layout
 

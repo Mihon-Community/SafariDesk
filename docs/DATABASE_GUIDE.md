@@ -13,8 +13,16 @@ exists in migrations today.
 | `003_demo.sql` | placeholder (empty) | reserved for demo bookings/drivers |
 | `004_auth.sql` | live | `users`, `refresh_tokens`, `password_resets`, `invites`, `audit_log` |
 | `005_rbac.sql` | live | role rename `staff → operations`, role CHECK constraints |
+| `006_staff_requests.sql` | live | `users.requested_role`, `status='pending'` constraint, partial index |
 
-Apply with any migration runner, e.g.:
+Apply with the repo runner (records applied files in `schema_migrations`, so
+re-runs are no-ops):
+
+```bash
+DATABASE_URL=postgres://… npm run migrate      # backend/
+```
+
+Or by hand:
 
 ```bash
 for f in backend/migrations/*.sql; do psql "$DATABASE_URL" -f "$f"; done
@@ -22,14 +30,15 @@ for f in backend/migrations/*.sql; do psql "$DATABASE_URL" -f "$f"; done
 
 Rollback = run each `DROP TABLE IF EXISTS …` in reverse order (Postgres 15+ can also
 wrap each file in a transaction; these scripts are written idempotently with
-`IF NOT EXISTS`/`IF EXISTS`).
+`IF NOT EXISTS`/`IF EXISTS`). Migrations that insert data are re-appliable because
+they use `ON CONFLICT`/guarded updates.
 
 ## Auth / RBAC schema (live)
 
 - **users** — `id uuid pk`, `name`, `email citext unique`, `password_hash` (bcrypt),
   `role` ∈ {super_admin, admin, operations, dispatcher, finance, agent, driver, customer},
-  `status` ∈ {active, invited, disabled}, `failed_attempts`, `locked_until`,
-  `last_login_at`, `created_at`.
+  `status` ∈ {active, invited, pending, disabled}, `requested_role` (staff role asked
+  for at self-signup), `failed_attempts`, `locked_until`, `last_login_at`, `created_at`.
 - **refresh_tokens** — sha256 of the raw token only (`token_hash`), `family_id` for
   rotation/reuse detection, `user_agent`, `ip inet`, `expires_at`, `revoked_at`,
   `replaced_at`. Index on `family_id`; reuse queries include revoked rows.
@@ -61,12 +70,20 @@ Domain entities join on `bookings.customer_id -> users.id` (customer role) and
 
 ## Seed users
 
-Dev credentials are created at boot (memory store) or via migrations (Postgres):
+Dev credentials: the memory store bootstraps an admin at startup; Postgres uses
+`npm run seed:demo` (one user per role, idempotent upsert, refuses in production).
 
-| Email | Password | Role | Where |
+| Role | Email | Password | Home |
 |---|---|---|---|
-| `admin@safaridesk.app` | `password123` | admin | dev bootstrap (`ADMIN_EMAIL`/`ADMIN_PASSWORD`) |
-| `amina@example.com` | `password123` | customer | MSW mock sign-in only |
-| all other roles | — | operations/dispatcher/finance/agent/driver | created by admins via `POST /api/auth/invite` |
+| admin | `admin@safaridesk.app` | `password123` | /dashboard |
+| super_admin | via invite only | — | /dashboard |
+| operations | `ops@safaridesk.app` | `password123` | /dispatch |
+| dispatcher | via invite / seed | `password123` | /dispatch |
+| finance | `finance@safaridesk.app` | `password123` | /payments |
+| agent | `agent@safaridesk.app` | `password123` | /bookings |
+| driver | `driver@safaridesk.app` | `password123` | /driver |
+| customer | `amina@example.com` | `password123` | /my-trips |
 
-Rotate `ADMIN_PASSWORD` in any real environment; never commit credentials.
+Staff roles requested through `/sign-up` stay `pending` until an admin approves
+them on `/users`. Rotate `DEMO_PASSWORD`/`ADMIN_PASSWORD` in any real environment;
+never commit credentials.
