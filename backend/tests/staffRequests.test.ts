@@ -34,7 +34,10 @@ describe("staff access requests", () => {
     return request(app)
       .post("/api/auth/sign-in")
       .send(ADMIN)
-      .then((res) => res.headers["set-cookie"].find((c: string) => c.startsWith("sd_access="))!.split(";")[0]!);
+      .then((res) => {
+        const jar = res.headers["set-cookie"] as unknown as string[];
+        return jar.find((c) => c.startsWith("sd_access="))!.split(";")[0]!;
+      });
   }
 
   it("creates a customer immediately, signed in with cookies", async () => {

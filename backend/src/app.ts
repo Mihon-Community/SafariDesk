@@ -3,9 +3,13 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
+import { Pool } from "pg";
+
 import { config } from "./config";
 import { logger } from "./logger";
 import { MemoryRepository } from "./auth/memoryStore";
+import { PgRepository } from "./auth/pgStore";
+import type { AuthRepository } from "./auth/repository";
 import { AuthService } from "./auth/service";
 import { bootstrapAdmin } from "./auth/bootstrap";
 import { authRouter } from "./routes/auth";
@@ -15,7 +19,7 @@ import { UsersService } from "./auth/users";
 import { usersRouter } from "./routes/users";
 
 export function createApp(
-  repo = new MemoryRepository(),
+  repo: AuthRepository = new MemoryRepository(),
   service?: AuthService,
 ): { app: Express; service: AuthService } {
   const authService = service ?? new AuthService(repo);
@@ -71,14 +75,22 @@ export function createApp(
   return { app, service: authService };
 }
 
-/** Start the server and seed the demo admin (memory store only). */
+/**
+ * Start the server. Uses Postgres when DATABASE_URL is set, otherwise the
+ * in-memory store (dev/tests). The demo admin is bootstrapped unless disabled.
+ */
 export async function start(): Promise<void> {
-  const repo = new MemoryRepository();
+  const repo = config.databaseUrl
+    ? new PgRepository(new Pool({ connectionString: config.databaseUrl }))
+    : new MemoryRepository();
   const { app } = createApp(repo);
-  await bootstrapAdmin(repo);
+  if (config.nodeEnv !== "production") await bootstrapAdmin(repo);
 
   app.listen(config.port, () => {
-    logger.info({ port: config.port }, `SafariDesk API listening on :${config.port}`);
+    logger.info(
+      { port: config.port, store: config.databaseUrl ? "postgres" : "memory" },
+      `SafariDesk API listening on :${config.port} (${config.databaseUrl ? "PgRepository" : "MemoryRepository"})`,
+    );
     if (!config.databaseUrl) {
       logger.info("DATABASE_URL not set — using the in-memory auth store (data resets on restart).");
     }

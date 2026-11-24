@@ -250,6 +250,23 @@ export class AuthService {
     if (!user || user.status === "disabled") throw new AuthError(401, "INVALID_REFRESH", "Your session has ended. Sign in again.");
 
     // Rotate: old token dies, new one continues the same family.
+    if (this.repo.rotateSession) {
+      const { token, expiresAt } = signAccessToken(user.id, user.role);
+      const refresh = generateToken();
+      await this.repo.rotateSession(session.id, {
+        id: id("ses"),
+        userId: user.id,
+        tokenHash: hashToken(refresh),
+        familyId: session.familyId,
+        userAgent: ctx.userAgent,
+        ip: ctx.ip,
+        expiresAt: new Date(Date.now() + config.refreshTtlSeconds * 1000),
+        revokedAt: null,
+        replacedAt: null,
+        createdAt: new Date(),
+      });
+      return { user: toPublicUser(user), accessToken: token, refreshToken: refresh, expiresAt };
+    }
     await this.repo.revokeSession(session.id);
     const tokens = await this.issueSession(user, ctx, session.familyId);
     return { user: toPublicUser(user), ...tokens };
@@ -354,15 +371,19 @@ export class AuthService {
     if (await this.repo.findUserByEmail(invite.email)) {
       throw new AuthError(409, "EMAIL_TAKEN", "An account already exists for that email.");
     }
-    const user = await this.repo.createUser({
+    const draft = {
       id: id("usr"),
       name: input.name,
       email: invite.email,
       passwordHash: await hashPassword(input.password),
       role: invite.role,
-      status: "active",
-    });
-    await this.repo.acceptInvite(invite.id);
+      status: "active" as const,
+      requestedRole: null,
+    };
+    const user = this.repo.completeInvite
+      ? await this.repo.completeInvite(invite, draft)
+      : await this.repo.createUser(draft);
+    if (!this.repo.completeInvite) await this.repo.acceptInvite(invite.id);
     await this.repo.audit({ userId: user.id, event: "auth.invite_accepted", ...ctx, metadata: { role: user.role } });
     return toPublicUser(user);
   }

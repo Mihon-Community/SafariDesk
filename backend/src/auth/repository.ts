@@ -41,6 +41,13 @@ export interface AuthRepository {
 
   // audit + lockout counters
   audit(entry: Omit<AuditRecord, "id" | "createdAt">): Promise<void>;
+
+  /** Optional atomic helpers implemented by transactional stores (Postgres). */
+  rotateSession?(oldSessionId: string, next: SessionRecord): Promise<void>;
+  completeInvite?(
+    invite: InviteRecord,
+    user: Omit<UserRecord, "createdAt" | "failedAttempts" | "lockedUntil" | "lastLoginAt">,
+  ): Promise<UserRecord>;
 }
 
 let counter = 0;
