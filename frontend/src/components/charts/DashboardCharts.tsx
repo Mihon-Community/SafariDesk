@@ -28,12 +28,12 @@ import {
 /* ------------------------------ status donut ------------------------------ */
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "Pending", color: "var(--status-neutral-bg)" },
-  DEPOSIT_PAID: { label: "Deposit paid", color: "var(--status-info-bg)" },
-  CONFIRMED: { label: "Confirmed", color: "var(--status-success-bg)" },
-  ACTIVE: { label: "Active", color: "var(--brand)" },
+  PENDING: { label: "Pending", color: "var(--status-neutral-solid)" },
+  DEPOSIT_PAID: { label: "Deposit paid", color: "var(--status-info-solid)" },
+  CONFIRMED: { label: "Confirmed", color: "var(--status-success-solid)" },
+  ACTIVE: { label: "Active", color: "var(--chart-1)" },
   COMPLETED: { label: "Completed", color: "var(--chart-2)" },
-  CANCELLED: { label: "Cancelled", color: "var(--status-danger-bg)" },
+  CANCELLED: { label: "Cancelled", color: "var(--status-danger-solid)" },
 };
 
 export function StatusDonut({ data }: { data: Partial<Record<string, number>> }) {

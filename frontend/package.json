@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "node scripts/check-contrast.mjs && tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "mocks": "msw init public/ --save"
   },

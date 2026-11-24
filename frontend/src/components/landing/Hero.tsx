@@ -74,6 +74,8 @@ export default function Hero({
         <div className="absolute inset-0 bg-gradient-to-t from-brand via-brand/75 to-brand/45" />
         {/* readability scrim behind the copy block */}
         <div className="absolute inset-0 bg-gradient-to-r from-brand/85 via-brand/35 to-transparent" />
+        {/* extra legibility on phones, where the 3D scene sits directly under the copy */}
+        <div className="absolute inset-0 bg-black/25 sm:hidden" />
       </div>
 
       {use3D && (
@@ -86,10 +88,10 @@ export default function Hero({
         <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-foreground/25 px-3 py-1 text-xs font-medium uppercase tracking-wider text-brand-foreground/85">
           Booking · Payments · Dispatch · Safety
         </p>
-        <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] sm:text-6xl">
+        <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] sm:text-6xl [text-shadow:0_1px_12px_rgba(0,0,0,0.45)]">
           Every safari, run from one desk.
         </h1>
-        <p className="mt-5 max-w-xl text-base text-brand-foreground/80 sm:text-lg">
+        <p className="mt-5 max-w-xl text-base text-brand-foreground/90 sm:text-lg [text-shadow:0_1px_8px_rgba(0,0,0,0.5)]">
           Quotes in under a minute, M-Pesa deposits reconciled automatically, drivers
           dispatched by SMS, and safety alerts that reach every guest on an active trip.
         </p>

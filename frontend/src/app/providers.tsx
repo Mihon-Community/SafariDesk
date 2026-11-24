@@ -34,7 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {mocksOn && <MswStarter />}
+      {mocksOn && process.env.NODE_ENV === "development" && <MswStarter />}
       {children}
       <Toaster
         position="top-right"

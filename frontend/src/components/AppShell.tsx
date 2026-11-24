@@ -45,6 +45,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { SignOutDialog } from "@/components/auth/SignOutDialog";
+import { SignedOutScreen } from "@/components/auth/SignedOutScreen";
 
 const NAV: Array<{ to: string; label: string; icon: LucideIcon; permission?: Permission }> = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -243,6 +245,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const logout = useAuth((s) => s.logout);
@@ -257,16 +262,35 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   /**
    * Sign-out (Phase 7): revoke the server session, drop every cached query and
-   * close the socket (useRealtime cleans up when the token clears), then land on
-   * the public site.
+   * close the socket (useRealtime cleans up when the token clears), then show the
+   * signed-out interstitial which lands on `/`.
    */
-  async function handleLogout() {
-    await logout();
-    qc.clear();
-    router.replace("/");
+  async function confirmSignOut(allDevices: boolean) {
+    setSigningOut(true);
+    try {
+      await logout();
+      if (allDevices) {
+        // Best effort: the API treats a plain sign-out as this device; the
+        // all-devices variant lands with the sessions endpoints.
+        try {
+          await fetch("/api/auth/sign-out", { method: "POST", credentials: "include" });
+        } catch {
+          /* ignore */
+        }
+      }
+      qc.clear();
+      setSignOutOpen(false);
+      setSignedOut(true);
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   const visibleTabs = TABS.filter((item) => !item.permission || hasPermission(user?.role ?? null, item.permission));
+
+  function handleLogout() {
+    setSignOutOpen(true);
+  }
 
   // Restore the persisted sidebar preference after mount (avoids a hydration mismatch).
   useEffect(() => {
@@ -493,6 +517,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       <CommandPalette />
+
+      <SignOutDialog
+        open={signOutOpen}
+        busy={signingOut}
+        onCancel={() => setSignOutOpen(false)}
+        onConfirm={(allDevices) => void confirmSignOut(allDevices)}
+      />
+      {signedOut && <SignedOutScreen />}
     </div>
   );
 }

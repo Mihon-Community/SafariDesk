@@ -69,8 +69,8 @@ export function KpiCard({
           <p className="truncate text-xs font-medium text-muted-foreground">{title}</p>
           <p className="mt-1.5 text-2xl font-semibold tracking-tight">{formatted}</p>
         </div>
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border bg-muted/60">
-          <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary">
+          <Icon className="h-4 w-4" aria-hidden />
         </span>
       </div>
 
@@ -99,7 +99,7 @@ export function KpiCard({
     return (
       <Link
         href={href}
-        className="block h-full overflow-hidden rounded-xl border bg-card transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block h-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)] transition-[transform,opacity,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         title={hint ?? `${title}: ${formatted}`}
       >
         {body}
@@ -108,7 +108,7 @@ export function KpiCard({
   }
   return (
     <div
-      className="h-full overflow-hidden rounded-xl border bg-card"
+      className="h-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)]"
       title={hint ?? `${title}: ${formatted}`}
     >
       {body}
