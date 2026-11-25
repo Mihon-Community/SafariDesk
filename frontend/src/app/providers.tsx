@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
 import { useAuth } from "@/store/auth";
+import { ensureMocksStarted } from "@/mocks/start";
 import MswStarter from "@/components/MswStarter";
 
 const queryClient = new QueryClient({
@@ -28,9 +29,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const mocksOn = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
 
   // Read the stored session after mount so SSR and the first client render match.
+  // In dev, wait for MSW first: otherwise /api/auth/me hits Next before the
+  // worker is active and logs a 404 (the same promise is used by MswStarter).
   useEffect(() => {
-    void useAuth.getState().hydrate();
-  }, []);
+    void (async () => {
+      if (mocksOn && process.env.NODE_ENV === "development") {
+        await ensureMocksStarted();
+      }
+      await useAuth.getState().hydrate();
+    })();
+  }, [mocksOn]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -64,7 +64,10 @@ that role's home (`lib/roles.ts`). API routes remain the source of truth.
 
 `msw init public/` regenerates `mockServiceWorker.js`. Turbopack needs the
 `resolveAlias`/`webpack` entry in `next.config.ts` because `msw/browser` sets
-`"node": null` in its exports map.
+`"node": null` in its exports map. `mocks/start.ts` is the single, race-safe
+worker bootstrap: `MswStarter` and auth hydration share its promise so the
+first `/api/auth/me` never races the worker (no dev-only 404). Next document/RSC
+navigations are excluded from MSW's unhandled-request warnings.
 
 ## Theming — how to add a 7th theme
 

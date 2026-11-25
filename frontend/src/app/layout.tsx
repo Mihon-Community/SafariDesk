@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -13,6 +14,8 @@ export const metadata: Metadata = {
  * Applies the persisted palette/mode before first paint so there is no flash of
  * unthemed content (and no black-on-transparent page with scripts disabled).
  * next-themes stores its mode under `theme`; the palette lives under `sd_theme`.
+ * next/script injects it into <head> with a known execution order, so React
+ * doesn't complain about a raw <script> under <html>.
  */
 const PRE_PAINT = `(function(){try{
   var doc=document.documentElement;
@@ -29,8 +32,12 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning data-theme="savannah">
-      <script dangerouslySetInnerHTML={{ __html: PRE_PAINT }} />
       <body>
+        <Script
+          id="sd-theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: PRE_PAINT }}
+        />
         <ThemeProvider>
           <Providers>{children}</Providers>
         </ThemeProvider>
