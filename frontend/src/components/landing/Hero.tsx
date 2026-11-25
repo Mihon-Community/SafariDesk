@@ -38,7 +38,7 @@ export default function Hero({
   imageAlt: string;
 }) {
   return (
-    <section className="relative flex min-h-[92svh] items-center overflow-hidden bg-brand text-brand-foreground">
+    <section className="relative flex min-h-[92svh] items-center overflow-hidden bg-brand text-brand-foreground 3xl:min-h-[85svh] 4xl:min-h-[80svh]">
       <div className="absolute inset-0" aria-hidden>
         <Image
           src={imageSrc}
@@ -50,22 +50,23 @@ export default function Hero({
           blurDataURL={BLUR_PLACEHOLDER}
           className="object-cover"
         />
-        {/* static scrim only — keeps the copy readable without adding graphics */}
+        {/* Dark, localised scrim: strong behind the copy, near-transparent
+            elsewhere so the tourist photo stays visible. */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(to top, var(--background) 0%, color-mix(in oklab, var(--background) 55%, transparent) 45%, transparent 75%), linear-gradient(to right, color-mix(in oklab, var(--background) 70%, transparent) 0%, transparent 60%)",
+              "linear-gradient(90deg, color-mix(in oklab, var(--brand) 68%, transparent) 0%, color-mix(in oklab, var(--brand) 30%, transparent) 38%, transparent 70%), linear-gradient(to top, color-mix(in oklab, var(--brand) 48%, transparent) 0%, transparent 42%)",
           }}
         />
       </div>
 
-      <div className="relative mx-auto w-full max-w-6xl px-4 pb-24 pt-32 sm:px-6">
+      <div className="landing-shell relative pb-20 pt-28 sm:pb-24 sm:pt-32 3xl:py-40">
         <motion.p
           variants={fadeUp}
           initial="hidden"
           animate="show"
-          className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-foreground/25 px-3 py-1 text-xs font-medium uppercase tracking-wider text-brand-foreground/90"
+          className="hero-copy mb-3 inline-flex items-center gap-2 rounded-full border border-brand-foreground/30 bg-brand/30 px-3 py-1 text-[0.7rem] font-medium uppercase tracking-wider text-brand-foreground backdrop-blur-sm sm:text-xs 4xl:text-sm"
         >
           Booking · Payments · Dispatch · Safety
         </motion.p>
@@ -73,7 +74,7 @@ export default function Hero({
           variants={container}
           initial="hidden"
           animate="show"
-          className="max-w-3xl text-4xl font-semibold leading-[1.05] sm:text-6xl"
+          className="hero-copy max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl 3xl:max-w-5xl 3xl:text-6xl 4xl:max-w-6xl 4xl:text-8xl"
         >
           {"Every safari, run from one desk.".split(" ").map((w, i) => (
             <span key={i} className="inline-block overflow-hidden pb-1 align-bottom">
@@ -88,7 +89,7 @@ export default function Hero({
           variants={fadeUp}
           initial="hidden"
           animate="show"
-          className="mt-5 max-w-xl text-base text-brand-foreground sm:text-lg"
+          className="hero-copy mt-5 max-w-xl text-base text-brand-foreground sm:text-lg 3xl:max-w-3xl 3xl:text-xl 4xl:text-2xl"
         >
           Quotes in under a minute, M-Pesa deposits reconciled automatically, drivers
           dispatched by SMS, and safety alerts that reach every guest on an active trip.
@@ -97,16 +98,16 @@ export default function Hero({
           variants={fadeUp}
           initial="hidden"
           animate="show"
-          className="mt-8 flex flex-wrap gap-3"
+          className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:gap-4"
         >
-          <Button asChild size="lg" className="bg-accent text-accent-foreground shadow-lg hover:bg-accent/90">
+          <Button asChild size="lg" className="hero-btn w-full bg-accent text-accent-foreground hover:bg-accent/90 sm:w-auto">
             <a href="/sign-up">Plan a safari</a>
           </Button>
           <Button
             asChild
             size="lg"
             variant="outline"
-            className="border-brand-foreground/30 bg-transparent text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
+            className="hero-btn w-full border-brand-foreground/40 bg-brand/25 text-brand-foreground hover:bg-brand/45 hover:text-brand-foreground sm:w-auto"
           >
             <a href="/sign-in">Sign in</a>
           </Button>
@@ -116,7 +117,7 @@ export default function Hero({
           initial="hidden"
           animate="show"
           href="#parks"
-          className="mt-16 hidden items-center gap-2 text-xs font-medium text-brand-foreground/80 transition-colors hover:text-brand-foreground sm:inline-flex"
+          className="hero-copy mt-16 hidden items-center gap-2 text-xs font-medium text-brand-foreground/90 transition-colors hover:text-brand-foreground sm:inline-flex 4xl:text-base"
         >
           Explore the parks <ChevronDown className="h-4 w-4" />
         </motion.a>

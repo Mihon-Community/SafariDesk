@@ -115,11 +115,15 @@ The hero is deliberately lightweight — no three.js and no scene graphics. The
 local tourist-safari photograph (`public/images/hero/safari-tourists-samburu.jpg`,
 CC BY-SA 4.0, credited in `CREDITS.md`), selected first in
 `src/lib/landing-images.json`, renders via `next/image` (`priority`, `fill`,
-`sizes="100vw"`, blur placeholder) as a **static** background. Only a theme-tinted
-scrim sits over it so the copy stays readable in every theme and mode; there is
-no Ken Burns zoom, parallax, sun/moon, bird or silhouette layer. The headline
-still staggers in word by word. The testimonial marquee and "How it works"
-route line are disabled under `prefers-reduced-motion`.
+`sizes="100vw"`, blur placeholder) as a **static** background. Only a dark,
+localised scrim (`--brand`) plus a text shadow sit over it so the copy stays
+readable in every theme and mode while the photo remains clearly visible; there
+is no Ken Burns zoom, parallax, sun/moon, bird or silhouette layer. The headline
+still staggers in word by word. Marketing sections use `.landing-shell`, which
+grows from 1152 px to 1680/2320/2880 px at 1920/2560/3840 px so large TVs do
+not waste two thirds of the screen; grid columns and type scale up at `3xl`/`4xl`.
+The testimonial marquee and "How it works" route line are disabled under
+`prefers-reduced-motion`.
 
 Images live in `public/images/{hero,parks,attractions}`; every file's source
 URL, author and licence is recorded in `public/images/CREDITS.md`. Never

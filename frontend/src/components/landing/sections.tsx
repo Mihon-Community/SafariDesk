@@ -30,14 +30,14 @@ import {
 export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
+      <div className="landing-shell flex items-center justify-between py-3.5">
         <Link href="/" className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-sm font-bold text-brand-foreground">
             S
           </span>
           <span className="text-base font-semibold">SafariDesk</span>
         </Link>
-        <nav className="hidden items-center gap-6 text-sm md:flex">
+        <nav className="hidden items-center gap-6 text-sm md:flex 3xl:gap-10 4xl:gap-14">
           <a href="#parks" className="text-muted-foreground transition-colors hover:text-foreground">
             Parks
           </a>
@@ -71,11 +71,11 @@ export function MarketingHeader() {
 export function TrustBar() {
   return (
     <section className="border-b bg-card">
-      <dl className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-4">
+      <dl className="landing-shell grid grid-cols-2 gap-6 py-8 lg:grid-cols-4 3xl:gap-10">
         {STATS.map((s, i) => (
           <Reveal key={s.label} delay={i * 0.08}>
             <dt className="order-2 text-xs text-muted-foreground">{s.label}</dt>
-            <dd className="text-3xl font-semibold tracking-tight">
+            <dd className="text-3xl font-semibold tracking-tight 3xl:text-4xl 4xl:text-5xl">
               <Counter value={s.value} suffix={s.suffix} />
             </dd>
           </Reveal>
@@ -89,11 +89,11 @@ export function TrustBar() {
 
 export function ParksSection() {
   return (
-    <section id="parks" className="scroll-mt-20 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section id="parks" className="scroll-mt-20 py-16 sm:py-24 3xl:py-28 4xl:py-32">
+      <div className="landing-shell">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-wider text-primary">Featured parks</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl 3xl:text-5xl 4xl:text-6xl">
             Kenya and Tanzania, covered
           </h2>
           <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
@@ -103,7 +103,7 @@ export function ParksSection() {
         </Reveal>
 
         <div className="container-card mt-10">
-          <div className="grid grid-cols-1 gap-5 @min-[600px]:grid-cols-2 @min-[960px]:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 @min-[600px]:grid-cols-2 @min-[960px]:grid-cols-3 @min-[1440px]:grid-cols-4 @min-[2000px]:grid-cols-5">
           {PARKS.map((park, i) => (
             <Reveal key={park.name} delay={(i % 3) * 0.08}>
               <Card className="group overflow-hidden">
@@ -141,18 +141,18 @@ export function ParksSection() {
 export function AttractionsSection() {
   return (
     <section id="attractions" className="scroll-mt-20 bg-card/60 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="landing-shell">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-wider text-primary">
             Things to see &amp; do
           </p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl 3xl:text-5xl 4xl:text-6xl">
             Beyond the game drive
           </h2>
         </Reveal>
 
         <div className="container-card mt-10">
-          <div className="grid grid-cols-1 gap-5 @min-[520px]:grid-cols-2 @min-[1024px]:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 @min-[520px]:grid-cols-2 @min-[1024px]:grid-cols-4 @min-[1800px]:grid-cols-5 @min-[2400px]:grid-cols-6">
           {ATTRACTIONS.map((a, i) => (
             <Reveal key={a.name} delay={(i % 4) * 0.06}>
               <Card className="group relative min-h-[16rem] overflow-hidden">
@@ -183,11 +183,11 @@ export function AttractionsSection() {
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="scroll-mt-20 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section id="how-it-works" className="scroll-mt-20 py-16 sm:py-24 3xl:py-28 4xl:py-32">
+      <div className="landing-shell">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-wider text-primary">How it works</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl 3xl:text-5xl 4xl:text-6xl">
             Book, pay, dispatch, explore
           </h2>
         </Reveal>
@@ -225,13 +225,13 @@ export function HowItWorks() {
 
 export function AITeaser() {
   return (
-    <section className="bg-brand py-16 text-brand-foreground sm:py-20">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-2">
+    <section className="bg-brand py-16 text-brand-foreground sm:py-20 3xl:py-28 4xl:py-32">
+      <div className="landing-shell grid items-center gap-10 lg:grid-cols-2">
         <Reveal>
           <p className="inline-flex items-center gap-2 rounded-full border border-brand-foreground/25 px-3 py-1 text-xs font-medium uppercase tracking-wider text-brand-foreground/85">
             <Sparkles className="h-3.5 w-3.5" /> AI layer
           </p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl 3xl:text-5xl 4xl:text-6xl">
             An itinerary and concierge that never quote prices
           </h2>
           <p className="mt-3 max-w-xl text-sm text-brand-foreground/80 sm:text-base">
@@ -281,11 +281,11 @@ export function AITeaser() {
 
 export function Testimonials() {
   return (
-    <section className="py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section className="py-16 sm:py-24 3xl:py-28 4xl:py-32">
+      <div className="landing-shell">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-wider text-primary">Operators</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl 3xl:text-5xl 4xl:text-6xl">
             Built with teams who run trips daily
           </h2>
         </Reveal>
@@ -293,7 +293,7 @@ export function Testimonials() {
         <div className="marquee mt-10 overflow-hidden">
           <div className="marquee-track flex w-max gap-5 pr-5">
             {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
-              <figure key={`${t.name}-${i}`} className="w-72 shrink-0 rounded-xl border bg-card p-5 shadow-sm">
+              <figure key={`${t.name}-${i}`} className="w-72 shrink-0 rounded-xl border bg-card p-5 shadow-sm 3xl:w-96 4xl:w-[28rem]">
                 <blockquote className="text-sm leading-relaxed">“{t.quote}”</blockquote>
                 <figcaption className="mt-4">
                   <p className="font-medium">{t.name}</p>
@@ -313,10 +313,10 @@ export function Testimonials() {
 export function PricingSection() {
   return (
     <section id="pricing" className="scroll-mt-20 bg-card/60 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="landing-shell">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-wider text-primary">Pricing</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl 3xl:text-5xl 4xl:text-6xl">
             Cheaper than one lost booking
           </h2>
           <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
@@ -337,7 +337,7 @@ export function PricingSection() {
                       </span>
                     )}
                   </div>
-                  <p className="text-3xl font-semibold tracking-tight">
+                  <p className="text-3xl font-semibold tracking-tight 3xl:text-4xl 4xl:text-5xl">
                     {tier.price}
                     <span className="text-sm font-normal text-muted-foreground">{tier.period}</span>
                   </p>
@@ -370,11 +370,11 @@ export function PricingSection() {
 
 export function FaqSection() {
   return (
-    <section className="py-16 sm:py-24">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6">
+    <section className="py-16 sm:py-24 3xl:py-28 4xl:py-32">
+      <div className="landing-shell faq-shell">
         <Reveal>
           <p className="text-xs font-medium uppercase tracking-wider text-primary">FAQ</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl 3xl:text-5xl 4xl:text-6xl">
             Questions operators ask
           </h2>
         </Reveal>
@@ -400,10 +400,10 @@ export function FaqSection() {
 
 export function CtaBand() {
   return (
-    <section className="bg-brand py-14 text-brand-foreground">
-      <div className="mx-auto flex max-w-6xl flex-col items-start gap-5 px-4 sm:px-6 md:flex-row md:items-center md:justify-between">
+    <section className="bg-brand py-14 text-brand-foreground 3xl:py-24 4xl:py-28">
+      <div className="landing-shell flex flex-col items-start gap-5 md:flex-row md:items-center md:justify-between">
         <Reveal>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl 3xl:text-4xl">
             Put your fleet on one record today.
           </h2>
           <p className="mt-2 text-sm text-brand-foreground/80 sm:text-base">
@@ -427,7 +427,7 @@ export function CtaBand() {
 export function MarketingFooter() {
   return (
     <footer className="border-t bg-card">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-sm sm:px-6 md:grid-cols-3">
+      <div className="landing-shell grid gap-8 py-10 text-sm md:grid-cols-3">
         <div>
           <p className="font-semibold">SafariDesk</p>
           <p className="mt-2 text-xs text-muted-foreground">
