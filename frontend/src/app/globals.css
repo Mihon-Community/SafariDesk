@@ -808,10 +808,66 @@ body {
 
 /* Scrim + text shadow let the photo show through while keeping AA contrast. */
 .hero-copy {
-  text-shadow: 0 2px 14px rgb(0 0 0 / 0.55);
+  text-shadow: 0 2px 14px color-mix(in oklab, var(--brand) 72%, transparent);
 }
 .hero-btn {
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.28);
+  box-shadow: 0 10px 30px color-mix(in oklab, var(--brand) 38%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-ken-burns {
+    animation: hero-ken-burns 24s ease-in-out infinite alternate;
+  }
+  @keyframes hero-ken-burns {
+    from { transform: scale(1); }
+    to { transform: scale(1.08); }
+  }
+}
+
+.hero-sun {
+  background:
+    radial-gradient(
+      circle at 36% 34%,
+      color-mix(in oklab, var(--accent) 45%, var(--brand-foreground)) 0%,
+      var(--accent) 62%,
+      color-mix(in oklab, var(--accent) 12%, transparent) 100%
+    );
+  box-shadow: 0 0 76px 20px color-mix(in oklab, var(--accent) 32%, transparent);
+  opacity: 0.78;
+}
+
+.hero-birds path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-bird-flight {
+    animation: hero-bird-glide 22s ease-in-out infinite alternate;
+  }
+  .hero-bird-flight-late { animation-delay: -8s; }
+  .hero-bird-flight-later { animation-delay: -15s; }
+  @keyframes hero-bird-glide {
+    from { transform: translate(0, 0); }
+    to { transform: translate(112px, -18px); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-birds { display: none; }
+}
+
+/* Editorial typography for the marketing pages only. Uses system serif so no
+   font download or new dependency is needed. */
+.landing-display {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.landing-shell :where(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+  border-radius: 0.35rem;
 }
 
 /* Content stays readable; only the dashboard stretches wider. */

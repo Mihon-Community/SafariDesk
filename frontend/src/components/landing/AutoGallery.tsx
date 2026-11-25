@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useReducedMotion } from "motion/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
 import { HERO_IMAGE, PARKS } from "@/lib/landing-data";
 
@@ -24,18 +24,20 @@ const SLIDES = [
 export function AutoGallery() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [playing, setPlaying] = useState(true);
   const reduce = useReducedMotion();
 
   useEffect(() => {
-    if (paused || reduce) return;
+    if (paused || !playing || reduce) return;
     const timer = window.setInterval(
       () => setIndex((current) => (current + 1) % SLIDES.length),
       5_000,
     );
     return () => window.clearInterval(timer);
-  }, [paused, reduce]);
+  }, [paused, playing, reduce]);
 
   function move(step: number) {
+    setPlaying(false);
     setIndex((current) => (current + step + SLIDES.length) % SLIDES.length);
   }
 
@@ -47,7 +49,7 @@ export function AutoGallery() {
           See the places behind the paperwork
         </h2>
         <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-          The slides change on their own — pause with a pointer or keyboard focus.
+          Explore the parks and destinations that shape every safari itinerary.
         </p>
       </div>
 
@@ -57,6 +59,7 @@ export function AutoGallery() {
         onMouseLeave={() => setPaused(false)}
         onFocusCapture={() => setPaused(true)}
         onBlurCapture={() => setPaused(false)}
+        role="region"
         aria-roledescription="carousel"
         aria-label="Safari destinations"
       >
@@ -81,7 +84,7 @@ export function AutoGallery() {
         ))}
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-4 text-white sm:p-6 3xl:p-10">
+        <div className="absolute inset-x-0 bottom-0 p-4 pb-16 text-white sm:p-6 sm:pb-6 3xl:p-10">
           <p className="text-xs font-medium uppercase tracking-widest text-white/75">
             {index + 1} / {SLIDES.length}
           </p>
@@ -97,30 +100,46 @@ export function AutoGallery() {
           type="button"
           onClick={() => move(-1)}
           aria-label="Previous image"
-          className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors hover:bg-black/70 sm:h-11 sm:w-11"
+          className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-5 w-5" aria-hidden />
         </button>
         <button
           type="button"
           onClick={() => move(1)}
           aria-label="Next image"
-          className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors hover:bg-black/70 sm:h-11 sm:w-11"
+          className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
         >
-          <ChevronRight className="h-5 w-5" />
+          <ChevronRight className="h-5 w-5" aria-hidden />
         </button>
-        <div className="absolute bottom-4 right-4 flex gap-1.5">
+        <div className="absolute bottom-2 right-2 flex items-center gap-0.5 sm:bottom-3 sm:right-3">
+          <button
+            type="button"
+            onClick={() => setPlaying((current) => !current)}
+            aria-label={playing ? "Pause slide rotation" : "Resume slide rotation"}
+            className="grid h-11 w-11 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+          >
+            {playing ? <Pause className="h-4 w-4" aria-hidden /> : <Play className="h-4 w-4" aria-hidden />}
+          </button>
           {SLIDES.map((slide, i) => (
             <button
               key={slide.src}
               type="button"
-              onClick={() => setIndex(i)}
+              onClick={() => {
+                setPlaying(false);
+                setIndex(i);
+              }}
               aria-label={`Show image ${i + 1}`}
               aria-current={i === index}
-              className={`h-2 rounded-full transition-all ${
-                i === index ? "w-6 bg-white" : "w-2 bg-white/50 hover:bg-white/80"
-              }`}
-            />
+              className="grid h-11 w-11 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <span
+                aria-hidden
+                className={`h-2 rounded-full transition-[width,background-color] ${
+                  i === index ? "w-5 bg-white" : "w-2 bg-white/55"
+                }`}
+              />
+            </button>
           ))}
         </div>
       </div>

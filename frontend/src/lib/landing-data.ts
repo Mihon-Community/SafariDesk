@@ -5,12 +5,15 @@ import heroImage from "./landing-images.json";
  * manifest (`public/images/CREDITS.md` lists sources and licences).
  */
 const IMG = heroImage as {
-  hero: { src: string; title: string }[];
+  hero: { src: string; title: string; artist: string; license: string }[];
   parks: { src: string; title: string }[];
   attractions: { src: string; title: string }[];
 };
 
 export const HERO_IMAGE = IMG.hero[0]?.src ?? "/images/hero/savannah-sunset-acacia-africa.jpg";
+export const HERO_CREDIT = IMG.hero[0]
+  ? `${IMG.hero[0].artist} · ${IMG.hero[0].license}`
+  : "Wikimedia Commons";
 
 function img(list: { src: string }[], index: number) {
   return list[index % Math.max(list.length, 1)]?.src ?? "";
