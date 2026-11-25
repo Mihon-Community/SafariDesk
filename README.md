@@ -37,7 +37,8 @@ admin approves them on **Users → Pending requests**.
 
 | Role | Email | Lands on |
 |---|---|---|
-| admin / super_admin | `admin@safaridesk.app` (super_admin via invite) | `/dashboard` |
+| super_admin | `super@safaridesk.app` | `/dashboard` (audit + settings + full control) |
+| admin | `admin@safaridesk.app` | `/dashboard` |
 | operations / dispatcher | `ops@safaridesk.app` | `/dispatch` |
 | finance | `finance@safaridesk.app` | `/payments` |
 | agent | `agent@safaridesk.app` | `/bookings` |

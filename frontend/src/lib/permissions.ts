@@ -97,7 +97,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "drivers:read",
     "drivers:write",
     "vehicles:read",
-    "payments:read",
     "alerts:read",
     "alerts:write",
     "itinerary:read",
@@ -120,7 +119,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "concierge:use",
     "itinerary:read",
   ],
-  driver: ["dispatch:read", "bookings:read", "itinerary:read", "drivers:read"],
+  driver: ["dispatch:read", "bookings:read", "itinerary:read"],
   customer: [
     "bookings:read",
     "payments:read",

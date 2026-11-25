@@ -44,4 +44,5 @@ export const DEMO_ACCOUNTS: Array<{ role: Role; email: string; password: string 
   { role: "operations", email: "ops@safaridesk.app", password: "password123" },
   { role: "finance", email: "finance@safaridesk.app", password: "password123" },
   { role: "admin", email: "admin@safaridesk.app", password: "password123" },
+  { role: "super_admin", email: "super@safaridesk.app", password: "password123" },
 ];

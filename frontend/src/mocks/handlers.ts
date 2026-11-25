@@ -1,5 +1,6 @@
 import { delay, http, HttpResponse } from "msw";
 import { dailySeries } from "./analytics";
+import { hasPermission, type Permission } from "@/lib/permissions";
 
 /**
  * MSW handlers mirroring the agreed API contract.
@@ -189,6 +190,18 @@ seedBooking(4, 2, 20, 2, "citizen", "CONFIRMED", "web");
 
 const guest = (id: number) => db.guests.find((g) => g.id === id)!;
 const booking = (id: number) => db.bookings.find((b) => b.id === id)!;
+
+// Matched payment for the customer demo's own booking (visible on /my-trips).
+db.payments.push({
+  id: nextPaymentId++,
+  bookingId: 1,
+  phone: guest(1).phone,
+  providerRef: "SD-1-1732200000001",
+  mpesaRef: "QNH000AMA",
+  amount: booking(1).depositDue,
+  status: "SUCCESS",
+  createdAt: stamp(-5),
+});
 
 // Matched payment for booking #2 (deposit paid).
 db.payments.push({
@@ -468,6 +481,7 @@ function seedMockUsers() {
     { id: 4, name: "Demo Agent", email: "agent@safaridesk.app", password: "password123", role: "agent", status: "active" },
     { id: 5, name: "Demo Operations", email: "ops@safaridesk.app", password: "password123", role: "operations", status: "active" },
     { id: 6, name: "Demo Finance", email: "finance@safaridesk.app", password: "password123", role: "finance", status: "active" },
+    { id: 7, name: "Super Admin", email: "super@safaridesk.app", password: "password123", role: "super_admin", status: "active" },
   ];
   for (const user of seeds) mockUsers.set(user.email, user);
 }
@@ -511,6 +525,79 @@ function currentUserFromCookie(anyCookie = false): MockAuthUser | undefined {
   return byId;
 }
 
+/* --------------------- dev RBAC: data scoping helpers --------------------- */
+/** Demo account → seeded guest/driver ids, so "own data" is deterministic. */
+const CUSTOMER_GUEST_ID = 1; // Amina Otieno
+const DEMO_DRIVER_ID = 2; // Demo Driver One
+
+function deny(permission: Permission) {
+  return json(
+    { error: `Missing permission ${permission}.`, code: "FORBIDDEN" },
+    { status: 403 },
+  );
+}
+
+function requireMockPermission(user: MockAuthUser | undefined, permission: Permission) {
+  return !user || !hasPermission(user.role, permission);
+}
+
+/** Bookings a role is entitled to see — never everyone's by default. */
+function scopedBookings(user: MockAuthUser | undefined): BookingRow[] {
+  if (!user) return [];
+  if (user.role === "customer") {
+    return db.bookings.filter((b) => b.guestId === CUSTOMER_GUEST_ID);
+  }
+  if (user.role === "driver") {
+    const ids = new Set(
+      db.assignments.filter((a) => a.driverId === DEMO_DRIVER_ID).map((a) => a.bookingId),
+    );
+    return db.bookings.filter((b) => ids.has(b.id));
+  }
+  return db.bookings;
+}
+
+/** Payments: customers only see deposits tied to their own bookings. */
+function scopedPayments(user: MockAuthUser | undefined): PaymentRow[] {
+  if (!user) return [];
+  if (user.role === "customer") {
+    const ids = new Set(
+      db.bookings.filter((b) => b.guestId === CUSTOMER_GUEST_ID).map((b) => b.id),
+    );
+    return db.payments.filter((p) => p.bookingId != null && ids.has(p.bookingId));
+  }
+  return db.payments;
+}
+
+interface MockAuditEntry {
+  id: string;
+  userId: string | null;
+  userEmail: string;
+  event: string;
+  metadata: Record<string, unknown>;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+const auditEntries: MockAuditEntry[] = [
+  { id: "aud_demo_3", userId: "1", userEmail: "admin@safaridesk.app", event: "auth.sign_in", metadata: {}, ip: null, userAgent: null, createdAt: stamp(-1) },
+  { id: "aud_demo_2", userId: "1", userEmail: "admin@safaridesk.app", event: "auth.request_approved", metadata: { target: "driver@example.com", role: "driver" }, ip: null, userAgent: null, createdAt: stamp(-2) },
+  { id: "aud_demo_1", userId: "7", userEmail: "super@safaridesk.app", event: "system.settings_updated", metadata: { setting: "theme" }, ip: null, userAgent: null, createdAt: stamp(-4) },
+];
+
+function auditMock(user: MockAuthUser | undefined, event: string, metadata: Record<string, unknown> = {}) {
+  auditEntries.unshift({
+    id: `aud_${Math.random().toString(36).slice(2, 10)}`,
+    userId: user ? String(user.id) : null,
+    userEmail: user?.email ?? "system",
+    event,
+    metadata,
+    ip: null,
+    userAgent: null,
+    createdAt: new Date().toISOString(),
+  });
+}
+
 function clearMockSession() {
   document.cookie = `${ACCESS_COOKIE}=; Path=/; Max-Age=0`;
   document.cookie = `${REFRESH_COOKIE}=; Path=/api/auth; Max-Age=0`;
@@ -539,6 +626,7 @@ export const handlers = [
         { status: 403 },
       );
     }
+    auditMock(user, "auth.sign_in");
     setMockSession(user);
     return json({ user: publicMockUser(user), expiresAt: new Date(Date.now() + 900_000).toISOString() });
   }),
@@ -584,6 +672,9 @@ export const handlers = [
       { status: 201 },
     );
     if (!needsApproval) setMockSession(user);
+    auditMock(user, needsApproval ? "auth.access_requested" : "auth.sign_up", {
+      requestedRole: requested,
+    });
     return res;
   }),
 
@@ -604,6 +695,7 @@ export const handlers = [
 
   http.post("/api/auth/sign-out", async () => {
     await delay(LATENCY);
+    auditMock(currentUserFromCookie(), "auth.sign_out");
     clearMockSession();
     return json({ ok: true });
   }),
@@ -636,6 +728,7 @@ export const handlers = [
     // Dev stand-in only: the real backend emails a hashed single-use link.
     const token = `mock-invite-${Math.random().toString(36).slice(2)}`;
     mockInvites.set(token, { email: body.email.toLowerCase(), role: body.role as MockAuthUser["role"] });
+    auditMock(user, "auth.invite_created", { email: body.email, role: body.role });
     return json({ ok: true, devToken: token }, { status: 201 });
   }),
 
@@ -686,6 +779,10 @@ export const handlers = [
 
   http.post("/api/users/:id/approve", async ({ params }) => {
     await delay(LATENCY);
+    const actor = currentUserFromCookie();
+    if (!actor || !["admin", "super_admin"].includes(actor.role)) {
+      return json({ error: "Missing permission users:manage.", code: "FORBIDDEN" }, { status: 403 });
+    }
     const target = [...mockUsers.values()].find((u) => String(u.id) === String(params.id));
     if (!target || target.status !== "pending" || !target.requestedRole) {
       return json({ error: "That account has no pending request.", code: "INVALID_REQUEST" }, { status: 400 });
@@ -693,17 +790,23 @@ export const handlers = [
     target.role = target.requestedRole;
     target.status = "active";
     target.requestedRole = null;
+    auditMock(actor, "auth.request_approved", { target: target.email, role: target.role });
     return json({ user: publicMockUser(target) });
   }),
 
   http.post("/api/users/:id/reject", async ({ params }) => {
     await delay(LATENCY);
+    const actor = currentUserFromCookie();
+    if (!actor || !["admin", "super_admin"].includes(actor.role)) {
+      return json({ error: "Missing permission users:manage.", code: "FORBIDDEN" }, { status: 403 });
+    }
     const target = [...mockUsers.values()].find((u) => String(u.id) === String(params.id));
     if (!target || target.status !== "pending") {
       return json({ error: "That account has no pending request.", code: "INVALID_REQUEST" }, { status: 400 });
     }
     target.status = "disabled";
     target.requestedRole = null;
+    auditMock(actor, "auth.request_rejected", { target: target.email });
     return json({ user: publicMockUser(target) });
   }),
 
@@ -732,6 +835,7 @@ export const handlers = [
     }
     if (body.role) target.role = body.role as MockAuthUser["role"];
     if (body.status) target.status = body.status as MockAuthUser["status"];
+    auditMock(actor, "users.updated", { target: target.email, changes: body });
     return json({ user: publicMockUser(target) });
   }),
 
@@ -743,13 +847,23 @@ export const handlers = [
     }
     const target = [...mockUsers.values()].find((u) => String(u.id) === params["id"]);
     if (!target) return json({ error: "User not found.", code: "NOT_FOUND" }, { status: 404 });
+    auditMock(actor, "auth.password_reset_requested", { target: target.email });
     // Dev stand-in: the real backend emails a single-use reset link.
     return json({ ok: true });
+  }),
+
+  http.get("/api/audit", async () => {
+    await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (requireMockPermission(user, "audit:read")) return deny("audit:read");
+    return json({ entries: auditEntries });
   }),
 
   /* analytics */
   http.get("/api/analytics/summary", async () => {
     await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (requireMockPermission(user, "reports:read")) return deny("reports:read");
     return json(summary());
   }),
 
@@ -768,10 +882,22 @@ export const handlers = [
   /* bookings */
   http.get("/api/bookings", async ({ request }) => {
     await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (requireMockPermission(user, "bookings:read")) return deny("bookings:read");
     const url = new URL(request.url);
     const status = url.searchParams.get("status");
     const q = (url.searchParams.get("q") ?? "").toLowerCase();
-    let rows = db.bookings.map(serializeBooking);
+    let rows = scopedBookings(user).map(serializeBooking);
+    // Drivers see trip logistics only — never quote breakdowns or money.
+    if (user?.role === "driver") {
+      rows = rows.map((b) => {
+        const trip = { ...b } as Partial<typeof b>;
+        delete trip.total;
+        delete trip.depositDue;
+        delete trip.quoteBreakdown;
+        return trip as typeof b;
+      });
+    }
     if (status) rows = rows.filter((b) => b.status === status);
     if (q) {
       rows = rows.filter((b) =>
@@ -1091,11 +1217,15 @@ export const handlers = [
 
   http.get("/api/analytics/daily", async () => {
     await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (requireMockPermission(user, "reports:read")) return deny("reports:read");
     return json({ days: dailySeries(90) });
   }),
 
   http.get("/api/analytics/by-park", async () => {
     await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (requireMockPermission(user, "reports:read")) return deny("reports:read");
     const counts = new Map<string, number>();
     for (const b of db.bookings) {
       const park = db.parks.find((p) => p.id === b.parkId)?.name ?? "Other";
@@ -1112,6 +1242,8 @@ export const handlers = [
 
   http.get("/api/analytics/payment-methods", async () => {
     await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (requireMockPermission(user, "reports:read")) return deny("reports:read");
     const methods = ["M-PESA", "CARD", "CASH", "BANK"];
     const rand = [0.62, 0.18, 0.14, 0.06];
     const series = ["collected", "pending"] as const;
@@ -1131,6 +1263,8 @@ export const handlers = [
 
   http.get("/api/analytics/driver-utilisation", async () => {
     await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (requireMockPermission(user, "reports:read")) return deny("reports:read");
     const drivers = db.drivers.map((d) => {
       const assignments = db.assignments.filter(
         (a) => a.driverId === d.id && ["WAITING", "ACCEPTED", "COMPLETED"].includes(a.status),
@@ -1150,8 +1284,10 @@ export const handlers = [
 
   http.get("/api/payments", async () => {
     await delay(LATENCY);
+    const user = currentUserFromCookie();
+    if (requireMockPermission(user, "payments:read")) return deny("payments:read");
     return json(
-      db.payments.map((p) => ({
+      scopedPayments(user).map((p) => ({
         ...p,
         guestPhone: p.phone,
       })),
