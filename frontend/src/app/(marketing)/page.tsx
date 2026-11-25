@@ -21,15 +21,14 @@ export const metadata = {
 };
 
 /**
- * Public landing page (Phase 3). The hero renders a React Three Fiber savannah
- * where WebGL is available and the user has not asked for reduced motion;
- * otherwise it shows the static hero photograph.
+ * Public landing page. The hero pairs a tourist safari photo with lightweight
+ * CSS/SVG/motion graphics (no WebGL).
  */
 export default function LandingPage() {
   return (
     <main>
       <MarketingHeader />
-      <Hero imageSrc={HERO_IMAGE} imageAlt="Golden-hour savannah with acacia trees" />
+      <Hero imageSrc={HERO_IMAGE} imageAlt="Tourists on game drive in Samburu National Reserve, Kenya" />
       <TrustBar />
       <ParksSection />
       <AttractionsSection />

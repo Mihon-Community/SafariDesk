@@ -1,8 +1,14 @@
 {
   "hero": [
     {
+      "src": "/images/hero/safari-tourists-samburu.jpg",
+      "title": "Safari vehicles in Samburu National Reserve, Kenya.jpg",
+      "artist": "Daniel Case",
+      "license": "CC BY-SA 4.0"
+    },
+    {
       "src": "/images/hero/savannah-sunset-acacia-africa.jpg",
-      "title": "The Savannah\u2019s Last Ember.jpg",
+      "title": "The Savannah’s Last Ember.jpg",
       "artist": "Temptious",
       "license": "CC0"
     },
@@ -59,12 +65,12 @@
     {
       "src": "/images/parks/serengeti-plains.jpg",
       "title": "Serengeti-Landscape-2012.JPG",
-      "artist": "Bj\u00f8rn Christian T\u00f8rrissen",
+      "artist": "Bjørn Christian Tørrissen",
       "license": "CC BY-SA 3.0"
     },
     {
       "src": "/images/parks/ngorongoro-crater.jpg",
-      "title": "Paisaje en la zona de conservaci\u00f3n de Ngorongoro, Tanzania, 2024-05-27, DD 57.jpg",
+      "title": "Paisaje en la zona de conservación de Ngorongoro, Tanzania, 2024-05-27, DD 57.jpg",
       "artist": "Diego Delso",
       "license": "CC BY-SA 4.0"
     }
@@ -120,7 +126,7 @@
     },
     {
       "src": "/images/attractions/stone-town-zanzibar.jpg",
-      "title": "Puerto de Stone Town, Zanz\u00edbar, Tanzania, 2024-05-31, DD 03.jpg",
+      "title": "Puerto de Stone Town, Zanzíbar, Tanzania, 2024-05-31, DD 03.jpg",
       "artist": "Diego Delso",
       "license": "CC BY-SA 4.0"
     },
