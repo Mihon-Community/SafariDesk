@@ -17,6 +17,7 @@ import { requireAdmin, requireAuth, requirePermission } from "./middleware/auth"
 import { errorMiddleware, notFound } from "./middleware/error";
 import { UsersService } from "./auth/users";
 import { usersRouter } from "./routes/users";
+import { auditRouter } from "./routes/audit";
 
 export function createApp(
   repo: AuthRepository = new MemoryRepository(),
@@ -68,6 +69,12 @@ export function createApp(
       requirePermission("users:manage"),
     ),
   );
+  // Audit trail — read-only, super-admin/audit:read only.
+  app.use(
+    "/api/audit",
+    auditRouter(repo, requireAuth(authService), requirePermission("audit:read")),
+  );
+
   // Everything after auth is a placeholder until the resource routers land.
   app.use("/api", notFound);
   app.use(errorMiddleware);

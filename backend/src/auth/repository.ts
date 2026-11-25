@@ -41,6 +41,8 @@ export interface AuthRepository {
 
   // audit + lockout counters
   audit(entry: Omit<AuditRecord, "id" | "createdAt">): Promise<void>;
+  /** Newest-first audit trail for the super-admin audit viewer. */
+  listAudit?(limit?: number): Promise<AuditRecord[]>;
 
   /** Optional atomic helpers implemented by transactional stores (Postgres). */
   rotateSession?(oldSessionId: string, next: SessionRecord): Promise<void>;

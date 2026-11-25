@@ -5,10 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ThemeModeToggle, ThemePaletteGrid } from "@/components/ThemeMenu";
 import { useThemeStore } from "@/store/theme";
 import { THEMES } from "@/lib/themes";
+import Link from "next/link";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
   const theme = useThemeStore((s) => s.theme);
   const active = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+  const { can } = usePermissions();
 
   return (
     <div className="space-y-4">
@@ -43,6 +47,26 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {can("settings:manage") && (
+        <Card>
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm">System control · super admin</CardTitle>
+            <CardDescription>
+              Full operational control: manage users and roles, review the audit trail, and change
+              workspace settings. Restricted to super admins.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3 p-4 pt-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/users">Manage users</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/audit">Review audit log</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

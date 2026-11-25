@@ -137,6 +137,10 @@ export class MemoryRepository implements AuthRepository {
     this.auditLog.push({ ...entry, id: id("aud"), createdAt: new Date() });
   }
 
+  async listAudit(limit = 100): Promise<AuditRecord[]> {
+    return [...this.auditLog].reverse().slice(0, limit);
+  }
+
   /** Test helper: full records, used only by the suite. */
   async debugUsers(): Promise<UserRecord[]> {
     return [...this.users.values()];

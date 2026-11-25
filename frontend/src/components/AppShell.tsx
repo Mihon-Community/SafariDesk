@@ -18,6 +18,7 @@ import {
   PlusCircle,
   ReceiptText,
   Search,
+  ScrollText,
   Star,
   Truck,
   Users,
@@ -66,6 +67,7 @@ const NAV: Array<{ to: string; label: string; icon: LucideIcon; permission?: Per
   { to: "/rates", label: "Rates", icon: Star, permission: "rates:read" },
   { to: "/feedback", label: "Feedback", icon: Star, permission: "feedback:read" },
   { to: "/users", label: "Users", icon: Users, permission: "users:read" },
+  { to: "/audit", label: "Audit log", icon: ScrollText, permission: "audit:read" },
   { to: "/driver", label: "Driver view", icon: CarFront, permission: "dispatch:read" },
   { to: "/my-trips", label: "My trips", icon: Luggage, permission: "concierge:use" },
 ];

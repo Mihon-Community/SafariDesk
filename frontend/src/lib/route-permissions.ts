@@ -10,6 +10,7 @@ export const ROUTE_PERMISSION: ReadonlyArray<readonly [string, Permission]> = [
   ["/rates", "rates:read"],
   ["/feedback", "feedback:read"],
   ["/users", "users:read"],
+  ["/audit", "audit:read"],
   ["/driver", "dispatch:read"],
   ["/my-trips", "concierge:use"],
 ];

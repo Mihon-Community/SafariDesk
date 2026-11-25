@@ -286,4 +286,21 @@ export class PgRepository implements AuthRepository {
       [entry.userId, entry.event, JSON.stringify(entry.metadata ?? {}), entry.ip, entry.userAgent],
     );
   }
+
+  async listAudit(limit = 100): Promise<AuditRecord[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, user_id, event, metadata, ip, user_agent, created_at
+       FROM audit_log ORDER BY created_at DESC, id DESC LIMIT $1`,
+      [Math.min(Math.max(limit, 1), 500)],
+    );
+    return rows.map((row: Record<string, unknown>) => ({
+      id: String(row.id),
+      userId: row.user_id ? String(row.user_id) : null,
+      event: String(row.event),
+      metadata: (row.metadata ?? {}) as Record<string, unknown>,
+      ip: row.ip ? String(row.ip) : null,
+      userAgent: row.user_agent ? String(row.user_agent) : null,
+      createdAt: new Date(String(row.created_at)),
+    }));
+  }
 }
