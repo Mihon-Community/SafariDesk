@@ -152,8 +152,12 @@ after the rewrite (raw build output).
   (`lib/roles.ts`) and a mismatch shows an informational toast.
 - Homes: admin/super_admin → `/dashboard`, operations/dispatcher → `/dispatch`,
   finance → `/payments`, agent → `/bookings`, driver → `/driver`, customer →
-  `/my-trips`. Dev-only demo quick-fill buttons sit under the form outside
-  production.
+  `/my-trips`. Dev-only demo buttons sign in with one click and show their
+  destination; each lands on that role's home with seeded data.
+- `?next=` deep links are honoured only when they start with the signed-in
+  role's home (`lib/route-permissions.ts` is shared by `proxy.ts` and Login), so
+  opening `/dashboard` first never sends another role to the operator dashboard.
+  The desktop sidebar's X collapses it, and its logo links to the role home.
 
 ## Testing
 

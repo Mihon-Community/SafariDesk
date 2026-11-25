@@ -41,11 +41,13 @@ export default function DriverHome() {
   }
 
   const bookings = (query.data ?? []).filter((b) => ["CONFIRMED", "ACTIVE"].includes(b.status));
-  const todays = bookings.filter((b) => b.startDate <= new Date().toISOString().slice(0, 10));
+  // Show the driver's active and upcoming trips. Seeded trips can start
+  // tomorrow, so filtering strictly by "today" left the demo page empty.
+  const todays = [...bookings].sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   return (
     <>
-      <PageHeader title={`Today, ${(user?.name ?? "driver").split(" ")[0]}`} description="Your trips and their status." />
+      <PageHeader title={`Today, ${(user?.name ?? "driver").split(" ")[0]}`} description="Your active and upcoming trips." />
       {todays.length === 0 ? (
         <EmptyState title="No trips scheduled today" description="Assignments appear here once dispatch allocates them." />
       ) : (

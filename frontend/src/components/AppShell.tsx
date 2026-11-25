@@ -29,6 +29,7 @@ import { api } from "@/lib/api";
 import type { SafetyAlert } from "@/lib/types";
 import type { Permission } from "@/lib/permissions";
 import { hasPermission } from "@/lib/permissions";
+import { ROLE_HOME } from "@/lib/roles";
 import { formatDateTime, initials } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { useAuth } from "@/store/auth";
@@ -256,6 +257,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const logout = useAuth((s) => s.logout);
   const user = useAuth((s) => s.user);
+  const homeHref = ROLE_HOME[user?.role ?? "admin"] ?? "/dashboard";
   const router = useRouter();
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
@@ -314,23 +316,49 @@ export function AppShell({ children }: { children: ReactNode }) {
           collapsed ? "w-16" : "w-64",
         )}
       >
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 px-5 py-5"
-          title="SafariDesk dashboard"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent font-bold text-accent-foreground">
-            S
+        {collapsed ? (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <Link
+              href={homeHref}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent font-bold text-accent-foreground"
+              title={`Go to ${homeHref}`}
+            >
+              S
+            </Link>
+            <button
+              onClick={toggleSidebar}
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-brand-foreground/70 hover:bg-brand-foreground/10 hover:text-brand-foreground"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
           </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-base font-semibold leading-none text-brand-foreground">
-                SafariDesk
-              </p>
-              <p className="mt-1 text-xs leading-none text-brand-foreground/60">Operator dashboard</p>
-            </div>
-          )}
-        </Link>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-4">
+            <Link href={homeHref} className="flex min-w-0 flex-1 items-center gap-2" title={`Go to ${homeHref}`}>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent font-bold text-accent-foreground">
+                S
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-base font-semibold leading-none text-brand-foreground">
+                  SafariDesk
+                </span>
+                <span className="mt-1 block truncate text-xs capitalize leading-none text-brand-foreground/60">
+                  {user?.role ?? "admin"} workspace
+                </span>
+              </span>
+            </Link>
+            <button
+              onClick={toggleSidebar}
+              title="Collapse sidebar"
+              aria-label="Collapse sidebar"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-brand-foreground/60 hover:bg-brand-foreground/10 hover:text-brand-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-foreground/40"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <NavItems collapsed={collapsed} />
         <div className="mt-auto border-t border-brand-foreground/10 p-3">
           {collapsed ? (

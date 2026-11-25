@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import SignUpForm from "@/views/SignUpForm";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 
@@ -13,9 +11,7 @@ export default function SignUpPage() {
       image="/images/parks/amboseli-elephants-kilimanjaro.jpg"
       imageAlt="Elephants walking towards Mount Kilimanjaro in Amboseli"
     >
-      <Suspense fallback={null}>
-        <SignUpForm />
-      </Suspense>
+      <SignUpForm />
     </AuthLayout>
   );
 }

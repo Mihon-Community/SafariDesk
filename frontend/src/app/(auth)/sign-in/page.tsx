@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import Login from "@/views/Login";
 import { AuthLayout, AuthLink, AuthLinks } from "@/components/auth/AuthLayout";
 
@@ -11,9 +9,7 @@ export default function SignInPage() {
       title="Run the safari from one dashboard"
       description="Bookings, dispatch, M-Pesa deposits and guest safety alerts — built for Kenyan tour operators."
     >
-      <Suspense fallback={null}>
-        <Login />
-      </Suspense>
+      <Login />
       <AuthLinks>
         No account yet? <AuthLink href="/sign-up">Create one</AuthLink>
       </AuthLinks>

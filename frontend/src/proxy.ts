@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import type { Permission, Role } from "./lib/permissions";
-import { hasPermission } from "./lib/permissions";
+import { canOpenRoute, matchesRoutePrefix, ROUTE_PERMISSION } from "./lib/route-permissions";
 import { ROLE_HOME } from "./lib/roles";
 
 /**
@@ -15,26 +14,8 @@ import { ROLE_HOME } from "./lib/roles";
  */
 const AUTH_PAGES = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password"] as const;
 
-/** Route prefix → permission needed to open it. */
-const ROUTE_PERMISSION: ReadonlyArray<readonly [string, Permission]> = [
-  ["/dashboard", "reports:read"],
-  ["/bookings", "bookings:read"],
-  ["/dispatch", "dispatch:read"],
-  ["/payments", "payments:read"],
-  ["/alerts", "alerts:read"],
-  ["/rates", "rates:read"],
-  ["/feedback", "feedback:read"],
-  ["/users", "users:read"],
-  ["/driver", "dispatch:read"],
-  ["/my-trips", "concierge:use"],
-];
-
 function roleHome(role: string | undefined): string {
-  return (role && ROLE_HOME[role as Role]) || "/dashboard";
-}
-
-function matchesPrefix(prefix: string, pathname: string): boolean {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+  return (role && ROLE_HOME[role as keyof typeof ROLE_HOME]) || "/dashboard";
 }
 
 export default function proxy(request: NextRequest) {
@@ -42,26 +23,31 @@ export default function proxy(request: NextRequest) {
   const hasSession = Boolean(request.cookies.get("sd_access")?.value);
   const role = request.cookies.get("sd_role")?.value;
 
-  const isAuthPage = AUTH_PAGES.some((p) => matchesPrefix(p, pathname));
+  const isAuthPage = AUTH_PAGES.some((p) => matchesRoutePrefix(p, pathname));
   if (isAuthPage) {
     if (!hasSession) return NextResponse.next();
-    const next = request.nextUrl.searchParams.get("next");
-    const target = next && next.startsWith("/") ? next : roleHome(role);
+    // A signed-in user hitting an auth page goes home, or to `next` only when
+    // that route is actually theirs (no more "all roles land on /dashboard").
+    const home = roleHome(role);
+    const requested = request.nextUrl.searchParams.get("next");
+    const target =
+      requested && requested.startsWith("/") && requested.startsWith(home)
+        ? requested
+        : home;
     return NextResponse.redirect(new URL(target, request.url));
   }
 
   const needsAuth =
     pathname === "/settings" ||
     pathname.startsWith("/settings/") ||
-    ROUTE_PERMISSION.some(([prefix]) => matchesPrefix(prefix, pathname));
+    ROUTE_PERMISSION.some(([prefix]) => matchesRoutePrefix(prefix, pathname));
   if (needsAuth && !hasSession) {
     const next = encodeURIComponent(pathname + request.nextUrl.search);
     return NextResponse.redirect(new URL(`/sign-in?next=${next}`, request.url));
   }
 
   if (hasSession && role) {
-    const rule = ROUTE_PERMISSION.find(([prefix]) => matchesPrefix(prefix, pathname));
-    if (rule && !hasPermission(role as Role, rule[1])) {
+    if (!canOpenRoute(role as keyof typeof ROLE_HOME, pathname)) {
       return NextResponse.redirect(new URL(roleHome(role), request.url));
     }
   }
