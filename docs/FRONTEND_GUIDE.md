@@ -129,6 +129,11 @@ Images live in `public/images/{hero,parks,attractions}`; every file's source
 URL, author and licence is recorded in `public/images/CREDITS.md`. Never
 hotlink; keep files optimised (max 2560 px) and give each an `alt`.
 
+The landing page also has a "Why SafariDesk" comparison table against generic
+spreadsheets/chat tools, a lightweight CSS bar/donut chart of admin time saved,
+and an auto-advancing image gallery (`AutoGallery.tsx`, 5 s interval, pause on
+hover/focus, static under reduced motion). All imagery is local and credited.
+
 Client JS for `/` dropped from a 924 KB largest chunk (three.js) to 447 KB
 after the rewrite (raw build output).
 

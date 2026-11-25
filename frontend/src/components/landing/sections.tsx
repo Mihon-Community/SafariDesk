@@ -8,6 +8,7 @@ import {
   MessageSquareText,
   ShieldCheck,
   Sparkles,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,9 @@ export function MarketingHeader() {
           <span className="text-base font-semibold">SafariDesk</span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm md:flex 3xl:gap-10 4xl:gap-14">
+          <a href="#why-us" className="text-muted-foreground transition-colors hover:text-foreground">
+            Why us
+          </a>
           <a href="#parks" className="text-muted-foreground transition-colors hover:text-foreground">
             Parks
           </a>
@@ -216,6 +220,155 @@ export function HowItWorks() {
             </Reveal>
           ))}
         </ol>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------- why us / comparison ---------------------- */
+
+function AdminTimeChart() {
+  const rows = [
+    { label: "Quote", before: 35, after: 6 },
+    { label: "Deposit match", before: 25, after: 4 },
+    { label: "Driver dispatch", before: 20, after: 3 },
+    { label: "Weekly reports", before: 15, after: 2 },
+  ];
+  return (
+    <div className="mt-5 space-y-3" role="img" aria-label="Minutes saved per task with SafariDesk">
+      {rows.map((row) => (
+        <div key={row.label}>
+          <div className="flex items-baseline justify-between gap-2 text-xs">
+            <span className="font-medium">{row.label}</span>
+            <span className="text-muted-foreground">
+              {row.before} min → {row.after} min
+            </span>
+          </div>
+          <div className="mt-1.5 flex gap-1.5" aria-hidden>
+            <span
+              className="h-2 rounded-full bg-muted-foreground/40"
+              style={{ width: `${(row.before / 40) * 80}%` }}
+            />
+            <span
+              className="h-2 rounded-full bg-primary"
+              style={{ width: `${(row.after / 40) * 80}%` }}
+            />
+          </div>
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-4 pt-1 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-3 rounded-full bg-muted-foreground/40" /> Typical desk
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-3 rounded-full bg-primary" /> SafariDesk
+        </span>
+      </div>
+    </div>
+  );
+}
+
+const COMPARISON = [
+  {
+    task: "Pricing a safari",
+    other: "Park-rate PDFs, spreadsheets and guesswork",
+    ours: "One quote engine: residency, season, vehicle, margin",
+  },
+  {
+    task: "M-Pesa deposits",
+    other: "Match each payment to a booking by hand",
+    ours: "References matched automatically; mismatches flagged",
+  },
+  {
+    task: "Driver dispatch",
+    other: "Group chats, paper manifests, no status",
+    ours: "Assign, send SMS, track accepted/completed",
+  },
+  {
+    task: "Guest safety",
+    other: "Alerts sent one guest at a time",
+    ours: "One alert reaches every guest on an active trip",
+  },
+  {
+    task: "AI help",
+    other: "Unchecked auto-replies and made-up prices",
+    ours: "Draft-only itineraries; a human approves every alert",
+  },
+];
+
+export function ComparisonSection() {
+  return (
+    <section id="why-us" className="scroll-mt-20 bg-card/60 py-16 sm:py-24 3xl:py-28 4xl:py-32">
+      <div className="landing-shell">
+        <Reveal>
+          <p className="text-xs font-medium uppercase tracking-wider text-primary">
+            Why SafariDesk
+          </p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl 3xl:text-5xl 4xl:text-6xl">
+            Built for safari desks, not generic tools
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm text-muted-foreground sm:text-base">
+            Spreadsheets, chat groups and banking apps were never designed to run a tour
+            operation. Here is what changes when every step shares one booking record.
+          </p>
+        </Reveal>
+
+        <div className="mt-10 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+          <Reveal>
+            <Card className="h-full p-5 3xl:p-8">
+              <p className="text-sm font-semibold">Why teams switch</p>
+              <AdminTimeChart />
+              <div className="mt-6 flex items-center gap-4 border-t pt-5">
+                <div
+                  className="grid size-24 shrink-0 place-items-center rounded-full 3xl:size-28"
+                  style={{ background: "conic-gradient(var(--primary) 0 72%, var(--muted) 72% 100%)" }}
+                  role="img"
+                  aria-label="72 percent less admin time"
+                >
+                  <span className="grid size-[68%] place-items-center rounded-full bg-card text-lg font-semibold 3xl:text-2xl">
+                    72%
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  less time reconciling, quoting and chasing drivers — and no more double entry.
+                </p>
+              </div>
+            </Card>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+              <table className="w-full min-w-[600px] text-left text-sm">
+                <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Job</th>
+                    <th className="px-4 py-3 font-medium">Typical setup</th>
+                    <th className="px-4 py-3 font-medium">With SafariDesk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMPARISON.map((row) => (
+                    <tr key={row.task} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-medium">{row.task}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        <span className="inline-flex items-start gap-1.5">
+                          <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive/70" aria-hidden />
+                          {row.other}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-start gap-1.5">
+                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                          {row.ours}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Reveal>
+        </div>
       </div>
     </section>
   );

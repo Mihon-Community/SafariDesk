@@ -3,6 +3,7 @@ import {
   AITeaser,
   AttractionsSection,
   CtaBand,
+  ComparisonSection,
   FaqSection,
   HowItWorks,
   MarketingFooter,
@@ -12,6 +13,7 @@ import {
   Testimonials,
   TrustBar,
 } from "@/components/landing/sections";
+import { AutoGallery } from "@/components/landing/AutoGallery";
 import { HERO_IMAGE } from "@/lib/landing-data";
 
 export const metadata = {
@@ -30,6 +32,8 @@ export default function LandingPage() {
       <MarketingHeader />
       <Hero imageSrc={HERO_IMAGE} imageAlt="Tourists on game drive in Samburu National Reserve, Kenya" />
       <TrustBar />
+      <ComparisonSection />
+      <AutoGallery />
       <ParksSection />
       <AttractionsSection />
       <HowItWorks />
