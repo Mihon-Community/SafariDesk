@@ -21,8 +21,8 @@ export const metadata = {
 };
 
 /**
- * Public landing page. The hero pairs a tourist safari photo with lightweight
- * CSS/SVG/motion graphics (no WebGL).
+ * Public landing page. The hero is just the local tourist safari photograph
+ * as a static background with a readability scrim behind the copy.
  */
 export default function LandingPage() {
   return (

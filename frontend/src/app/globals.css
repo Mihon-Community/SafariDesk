@@ -955,33 +955,9 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
- * Landing hero (lightweight: photo + SVG + motion; no three.js)
+ * Landing hero: static photo background only. Animation below is for the
+ * testimonial marquee and "How it works" route line, not the hero.
  * ------------------------------------------------------------------------- */
-@keyframes kenburns {
-  from { transform: scale(1); }
-  to   { transform: scale(1.08); }
-}
-.kenburns {
-  animation: kenburns 20s ease-out forwards;
-  will-change: transform;
-}
-
-@keyframes glide {
-  0%   { transform: translate3d(-10vw, 0, 0); opacity: 0; }
-  10%  { opacity: 0.9; }
-  50%  { transform: translate3d(45vw, -6vh, 0); }
-  90%  { opacity: 0.9; }
-  100% { transform: translate3d(105vw, 0, 0); opacity: 0; }
-}
-.bird-glide {
-  animation: glide 26s linear infinite;
-  will-change: transform, opacity;
-}
-.bird-glide-slow {
-  animation-duration: 38s;
-  animation-delay: -12s;
-}
-
 @keyframes marquee-x {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
@@ -995,13 +971,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kenburns,
-  .bird-glide,
   .marquee-track {
     animation: none;
-  }
-  .bird-glide {
-    display: none;
   }
 }
 

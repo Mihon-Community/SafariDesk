@@ -108,15 +108,15 @@ the zustand theme store owns `[data-theme]`. Palette changes crossfade through
 
 ## Landing page and hero
 
-The hero is deliberately lightweight — no three.js. The default background is a
+The hero is deliberately lightweight — no three.js and no scene graphics. The
 local tourist-safari photograph (`public/images/hero/safari-tourists-samburu.jpg`,
 CC BY-SA 4.0, credited in `CREDITS.md`), selected first in
-`src/lib/landing-images.json`. It renders via `next/image` (`priority`, `fill`,
-`sizes="100vw"`, blur placeholder) with a slow Ken Burns zoom, a theme-tinted
-readability gradient, parallax SVG savannah silhouettes (`currentColor`), a
-glowing sun/moon disc and gliding birds; the headline staggers in word by word.
-Everything motion-related (zoom, parallax, birds, testimonial marquee, route
-line) is disabled under `prefers-reduced-motion`.
+`src/lib/landing-images.json`, renders via `next/image` (`priority`, `fill`,
+`sizes="100vw"`, blur placeholder) as a **static** background. Only a theme-tinted
+scrim sits over it so the copy stays readable in every theme and mode; there is
+no Ken Burns zoom, parallax, sun/moon, bird or silhouette layer. The headline
+still staggers in word by word. The testimonial marquee and "How it works"
+route line are disabled under `prefers-reduced-motion`.
 
 Images live in `public/images/{hero,parks,attractions}`; every file's source
 URL, author and licence is recorded in `public/images/CREDITS.md`. Never
