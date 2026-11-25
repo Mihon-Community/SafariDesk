@@ -13,7 +13,7 @@ import { id } from "../src/auth/repository";
 import { ROLES, type Role } from "../src/auth/types";
 
 const DEMO: Array<{ role: Role; email: string; name: string }> = [
-  { role: "admin", email: "admin@safaridesk.app", name: "Operator Admin" },
+  { role: "admin", email: "demo-admin@safaridesk.app", name: "Demo Admin" },
   { role: "operations", email: "ops@safaridesk.app", name: "Demo Operations" },
   { role: "finance", email: "finance@safaridesk.app", name: "Demo Finance" },
   { role: "agent", email: "agent@safaridesk.app", name: "Demo Agent" },

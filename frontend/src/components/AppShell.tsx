@@ -227,13 +227,8 @@ function UserMenu({
 export function RequireAuth({ children }: { children: ReactNode }) {
   const user = useAuth((s) => s.user);
   const hydrated = useAuth((s) => s.hydrated);
-  const hydrate = useAuth((s) => s.hydrate);
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    void hydrate();
-  }, [hydrate]);
 
   useEffect(() => {
     if (hydrated && !user) {
@@ -241,7 +236,13 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     }
   }, [hydrated, user, pathname, router]);
 
-  if (!hydrated || !user) return null;
+  if (!hydrated || !user) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-background px-4" role="status" aria-live="polite">
+        <p className="text-sm text-muted-foreground">Checking your session…</p>
+      </div>
+    );
+  }
   return <>{children}</>;
 }
 

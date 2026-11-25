@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -29,7 +30,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning data-theme="savannah">
-      <script dangerouslySetInnerHTML={{ __html: PRE_PAINT }} />
+      <head>
+        <Script
+          id="safaridesk-theme-prepaint"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: PRE_PAINT }}
+        />
+      </head>
       <body>
         <ThemeProvider>
           <Providers>{children}</Providers>

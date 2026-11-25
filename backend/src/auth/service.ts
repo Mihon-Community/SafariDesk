@@ -6,6 +6,7 @@ import { generateToken } from "./memoryStore";
 import { hashPassword, verifyPassword } from "./passwords";
 import { hashToken, signAccessToken, verifyAccessToken } from "./tokens";
 import type { Role, UserRecord } from "./types";
+import { normalizeKenyanPhone } from "../lib/phone";
 
 export class AuthError extends Error {
   constructor(
@@ -68,17 +69,17 @@ export const REQUESTABLE_ROLES: Role[] = ["customer", "driver", "agent", "operat
 const PENDING_ROLES: Role[] = ["driver", "agent", "operations", "finance"];
 
 export type DeliveryEvent =
-  | { kind: "password_reset"; email: string; token: string; expiresAt: Date }
-  | { kind: "invite"; email: string; role: Role; token: string; expiresAt: Date }
-  | { kind: "request_approved"; email: string; role: Role }
-  | { kind: "request_rejected"; email: string };
+  | { kind: "password_reset"; email: string; phone?: string | null | undefined; token: string; expiresAt: Date }
+  | { kind: "invite"; email: string; phone?: string | null | undefined; role: Role; token: string; expiresAt: Date }
+  | { kind: "request_approved"; email: string; phone?: string | null | undefined; role: Role }
+  | { kind: "request_rejected"; email: string; phone?: string | null | undefined };
 
 export class AuthService {
-  private delivery: (event: DeliveryEvent) => void;
+  private delivery: (event: DeliveryEvent) => unknown;
 
   constructor(
     private repo: AuthRepository,
-    delivery?: (event: DeliveryEvent) => void,
+    delivery?: (event: DeliveryEvent) => unknown,
   ) {
     // Default delivery is a log line; production plugs in Africa's Talking /
     // email here. Tokens never appear in logs.
@@ -86,8 +87,8 @@ export class AuthService {
   }
 
   /** Shared delivery hook so admin actions (users service) notify too. */
-  notify(event: DeliveryEvent): void {
-    this.delivery(event);
+  async notify(event: DeliveryEvent): Promise<void> {
+    await this.delivery(event);
   }
 
   /**
@@ -122,10 +123,15 @@ export class AuthService {
     if (existing) throw new AuthError(409, "EMAIL_TAKEN", "An account already exists for that email.");
 
     const needsApproval = PENDING_ROLES.includes(requested);
+    const phone = input.phone ? normalizeKenyanPhone(input.phone) : null;
+    if (input.phone && !phone) {
+      throw new AuthError(400, "INVALID_PHONE", "Enter a valid Kenyan mobile number.");
+    }
     const user = await this.repo.createUser({
       id: id("usr"),
       name: input.name,
       email: input.email.toLowerCase(),
+      phone,
       passwordHash: await hashPassword(input.password),
       // Pending requesters hold the lowest role until an admin approves them.
       role: needsApproval ? "customer" : requested,
@@ -164,7 +170,7 @@ export class AuthService {
       requestedRole: null,
     });
     await this.repo.audit({ userId, event: "auth.request_approved", ...ctx, metadata: { actorId, role: user.requestedRole } });
-    this.delivery({ kind: "request_approved", email: user.email, role: user.requestedRole });
+    await this.delivery({ kind: "request_approved", email: user.email, phone: user.phone, role: user.requestedRole });
     return toPublicUser(approved);
   }
 
@@ -180,7 +186,7 @@ export class AuthService {
     });
     await this.repo.revokeAllUserSessions(userId);
     await this.repo.audit({ userId, event: "auth.request_rejected", ...ctx, metadata: { actorId } });
-    this.delivery({ kind: "request_rejected", email: user.email });
+    await this.delivery({ kind: "request_rejected", email: user.email, phone: user.phone });
     return toPublicUser(rejected);
   }
 
@@ -304,7 +310,7 @@ export class AuthService {
         createdAt: new Date(),
       });
       await this.repo.audit({ userId: user.id, event: "auth.password_reset_requested", ...ctx, metadata: {} });
-      this.delivery({ kind: "password_reset", email: user.email, token: raw, expiresAt });
+      await this.delivery({ kind: "password_reset", email: user.email, phone: user.phone, token: raw, expiresAt });
       logger.info({ userId: user.id }, "password reset requested");
     }
     return { ok: true };
@@ -329,7 +335,13 @@ export class AuthService {
     await this.repo.audit({ userId: user.id, event: "auth.password_reset", ...ctx, metadata: {} });
   }
 
-  async invite(actorId: string, email: string, role: Role, ctx: RequestContext): Promise<{ ok: true }> {
+  async invite(
+    actorId: string,
+    email: string,
+    role: Role,
+    ctx: RequestContext,
+    phoneInput?: string,
+  ): Promise<{ ok: true }> {
     const actor = await this.repo.findUserById(actorId);
     if (!actor || (actor.role !== "admin" && actor.role !== "super_admin")) {
       throw new AuthError(403, "FORBIDDEN", "Only admins can invite staff.");
@@ -341,11 +353,15 @@ export class AuthService {
       throw new AuthError(400, "BAD_ROLE", "Unknown role.");
     }
 
+    const phone = phoneInput ? normalizeKenyanPhone(phoneInput) : null;
+    if (phoneInput && !phone) throw new AuthError(400, "INVALID_PHONE", "Enter a valid Kenyan mobile number.");
+
     const raw = generateToken();
     const expiresAt = new Date(Date.now() + config.inviteTtlDays * 24 * 60 * 60 * 1000);
     await this.repo.createInvite({
       id: id("inv"),
       email: email.toLowerCase(),
+      phone,
       role,
       tokenHash: hashToken(raw),
       invitedBy: actorId,
@@ -354,7 +370,7 @@ export class AuthService {
       createdAt: new Date(),
     });
     await this.repo.audit({ userId: actorId, event: "auth.invite_created", ...ctx, metadata: { role } });
-    this.delivery({ kind: "invite", email: email.toLowerCase(), role, token: raw, expiresAt });
+    await this.delivery({ kind: "invite", email: email.toLowerCase(), phone, role, token: raw, expiresAt });
     logger.info({ userId: actorId, role }, "staff invite created");
     return { ok: true };
   }
@@ -375,6 +391,7 @@ export class AuthService {
       id: id("usr"),
       name: input.name,
       email: invite.email,
+      phone: invite.phone ?? null,
       passwordHash: await hashPassword(input.password),
       role: invite.role,
       status: "active" as const,

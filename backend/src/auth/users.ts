@@ -35,7 +35,7 @@ function toPublic(user: UserRecord): PublicUserRecord {
 export class UsersService {
   constructor(
     private repo: AuthRepository,
-    private delivery: (event: DeliveryEvent) => void = () => {},
+    private delivery: (event: DeliveryEvent) => void | Promise<void> = () => {},
   ) {}
 
   async list(): Promise<PublicUserRecord[]> {
@@ -117,7 +117,7 @@ export class UsersService {
       usedAt: null,
       createdAt: new Date(),
     });
-    this.delivery({ kind: "password_reset", email: target.email, token: raw, expiresAt });
+    await this.delivery({ kind: "password_reset", email: target.email, phone: target.phone, token: raw, expiresAt });
     await this.repo.audit({ userId: actorId, event: "users.password_reset", ...ctx, metadata: { targetId } });
     return { ok: true };
   }
@@ -148,7 +148,7 @@ export class UsersService {
       status: "active",
       requestedRole: null,
     });
-    this.delivery({ kind: "request_approved", email: target.email, role: target.requestedRole });
+    await this.delivery({ kind: "request_approved", email: target.email, phone: target.phone, role: target.requestedRole });
     await this.repo.audit({
       userId: actorId,
       event: "users.request_approved",
@@ -175,7 +175,7 @@ export class UsersService {
     }
     await this.repo.revokeAllUserSessions(targetId);
     const updated = await this.repo.updateUser(targetId, { status: "disabled", requestedRole: null });
-    this.delivery({ kind: "request_rejected", email: target.email });
+    await this.delivery({ kind: "request_rejected", email: target.email, phone: target.phone });
     await this.repo.audit({ userId: actorId, event: "users.request_rejected", ...ctx, metadata: { targetId } });
     logger.info({ actorId, targetId }, "access request rejected");
     return toPublic(updated);

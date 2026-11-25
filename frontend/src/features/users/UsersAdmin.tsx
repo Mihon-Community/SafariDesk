@@ -47,6 +47,7 @@ export function UsersAdmin({ users }: { users: AdminUser[] }) {
   const currentUser = useAuth((s) => s.user);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("operations");
   const [busyId, setBusyId] = useState<string | null>(null);
   const qc = useQueryClient();
@@ -100,11 +101,12 @@ export function UsersAdmin({ users }: { users: AdminUser[] }) {
     try {
       const res = await api<{ ok: boolean; devToken?: string }>("/api/auth/invite", {
         method: "POST",
-        body: { email: inviteEmail, role: inviteRole },
+        body: { email: inviteEmail, role: inviteRole, ...(invitePhone ? { phone: invitePhone } : {}) },
       });
       toast.success("Invite sent");
       if (res.devToken) toast.info(`Dev invite token: ${res.devToken}`);
       setInviteEmail("");
+      setInvitePhone("");
       setInviteOpen(false);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not create the invite");
@@ -266,6 +268,18 @@ export function UsersAdmin({ users }: { users: AdminUser[] }) {
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="driver@safaridesk.app"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="invite-phone">SMS phone (optional)</Label>
+            <Input
+              id="invite-phone"
+              type="tel"
+              inputMode="tel"
+              pattern="\+254[17][0-9]{8}"
+              value={invitePhone}
+              onChange={(e) => setInvitePhone(e.target.value)}
+              placeholder="+2547XXXXXXXX"
             />
           </div>
           <div className="space-y-1.5">

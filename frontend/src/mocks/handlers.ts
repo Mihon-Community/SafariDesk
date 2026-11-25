@@ -88,7 +88,7 @@ const db = {
     { id: 2, bookingId: 5, rating: 4, comment: "Lovely trip, car was a bit warm.", sentiment: "positive", topics: ["vehicle"], createdAt: stamp(-1) },
   ] as FeedbackRow[],
   users: [
-    { id: 1, email: "admin@safaridesk.app", name: "Operator Admin", role: "admin", status: "ACTIVE" },
+    { id: 1, email: "demo-admin@safaridesk.app", name: "Demo Admin", role: "admin", status: "ACTIVE" },
   ] as { id: number; email: string; name: string; role: string; status: string }[],
 };
 
@@ -451,7 +451,7 @@ function seedMockUsers() {
     {
       id: 1,
       name: "SafariDesk Admin",
-      email: "admin@safaridesk.app",
+      email: "demo-admin@safaridesk.app",
       password: "password123",
       role: "admin",
       status: "active",

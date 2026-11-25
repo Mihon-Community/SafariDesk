@@ -143,3 +143,14 @@ admin-only guard, rate limiting) and `tests/rbac.test.ts` (permission map, 403 b
 role/status updates, self-lockout, super-admin grant, reset). `tests/permissions.sync.test.ts`
 keeps the frontend mirror honest. Suites raise `AUTH_RATE_LIMIT` and track the mutable
 admin password between cases.
+
+## Africa's Talking SMS and USSD
+
+The backend's Africa's Talking integration is SMS-first. It sends auth
+notifications when a user has a phone number, accepts incoming SMS commands
+(`HELP`, `BOOK`, `STOP`, `START`), records delivery reports, and offers an
+optional information-only USSD menu. `BOOK` points users to the safari options
+page; it does not book a trip. Setup variables, the ngrok helper, product
+callback paths, Postgres migration, and local run commands are in
+[`backend/README.md`](../backend/README.md). Automated tests stub the provider;
+they never send messages.

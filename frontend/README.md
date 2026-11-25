@@ -32,7 +32,7 @@ npm run dev            # uses .env -> NEXT_PUBLIC_USE_MOCKS=true
 NEXT_PUBLIC_USE_MOCKS=false npm run dev
 ```
 
-Dev server: http://localhost:3000 → `/sign-in` (demo mocks accept any valid email
+Dev server: http://localhost:3002 → `/sign-in` (demo mocks accept any valid email
 with an 8+ character password). Authenticated routes live under `/dashboard`,
 `/bookings`, `/dispatch`, `/payments`, `/alerts`, `/rates`, `/feedback`.
 

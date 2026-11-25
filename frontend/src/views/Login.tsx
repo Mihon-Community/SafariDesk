@@ -39,18 +39,18 @@ export default function Login() {
   const [group, setGroup] = useState<SignInGroup>("traveller");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [demoSigningIn, setDemoSigningIn] = useState<(typeof DEMO_ACCOUNTS)[number]["role"] | null>(null);
 
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
 
-  async function onSubmit(values: LoginValues) {
+  async function signIn(values: LoginValues, selectedGroup: SignInGroup) {
     setFormError(null);
     try {
       const res = await api<{ user: SessionUser }>("/api/auth/sign-in", {
@@ -59,7 +59,7 @@ export default function Login() {
       });
       // Cookies carry the session; the user object feeds the UI.
       setSession(res.user);
-      const expected = GROUP_ROLES[group];
+      const expected = GROUP_ROLES[selectedGroup];
       if (!expected.includes(res.user.role)) {
         toast.info(`Signed in as ${res.user.role}`);
       } else {
@@ -78,9 +78,26 @@ export default function Login() {
     }
   }
 
-  function fillDemo(email: string, password: string) {
-    setValue("email", email);
-    setValue("password", password);
+  function onSubmit(values: LoginValues) {
+    return signIn(values, group);
+  }
+
+  async function signInAsDemo(account: (typeof DEMO_ACCOUNTS)[number]) {
+    const selectedGroup: SignInGroup =
+      account.role === "customer"
+        ? "traveller"
+        : account.role === "driver"
+          ? "driver"
+          : account.role === "admin" || account.role === "super_admin"
+            ? "admin"
+            : "staff";
+    setGroup(selectedGroup);
+    setDemoSigningIn(account.role);
+    try {
+      await signIn(account, selectedGroup);
+    } finally {
+      setDemoSigningIn(null);
+    }
   }
 
   const hint = SIGN_IN_GROUPS.find((g) => g.id === group)?.hint;
@@ -163,23 +180,25 @@ export default function Login() {
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isSubmitting ? "Signing in…" : "Sign in"}
+        <Button type="submit" className="w-full" disabled={isSubmitting || demoSigningIn !== null}>
+          {(isSubmitting || demoSigningIn !== null) && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSubmitting || demoSigningIn !== null ? "Signing in…" : "Sign in"}
         </Button>
       </form>
 
       {process.env.NODE_ENV !== "production" && (
         <div className="space-y-2 border-t pt-3">
-          <p className="text-xs font-medium text-muted-foreground">Demo accounts (dev only)</p>
+          <p className="text-xs font-medium text-muted-foreground">Demo accounts (dev only — click to sign in)</p>
           <div className="flex flex-wrap gap-1.5">
             {DEMO_ACCOUNTS.map((account) => (
               <button
                 key={account.email}
                 type="button"
-                onClick={() => fillDemo(account.email, account.password)}
-                className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:border-primary hover:text-primary"
+                onClick={() => void signInAsDemo(account)}
+                disabled={isSubmitting || demoSigningIn !== null}
+                className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:border-primary hover:text-primary disabled:cursor-wait disabled:opacity-60"
               >
+                {demoSigningIn === account.role && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />}
                 {account.role}
               </button>
             ))}

@@ -13,7 +13,7 @@ import { ROLE_HOME } from "./lib/roles";
  * This is a convenience only — every API route still enforces permissions and
  * remains the source of truth.
  */
-const AUTH_PAGES = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password"] as const;
+const AUTH_PAGES = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/accept-invite"] as const;
 
 /** Route prefix → permission needed to open it. */
 const ROUTE_PERMISSION: ReadonlyArray<readonly [string, Permission]> = [
@@ -39,10 +39,27 @@ function matchesPrefix(prefix: string, pathname: string): boolean {
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = Boolean(request.cookies.get("sd_access")?.value);
+  const accessCookie = request.cookies.get("sd_access")?.value;
   const role = request.cookies.get("sd_role")?.value;
-
+  const mockMode = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_USE_MOCKS === "true";
   const isAuthPage = AUTH_PAGES.some((p) => matchesPrefix(p, pathname));
+
+  // A real backend session uses a JWT, while MSW sessions use a numeric mock
+  // user id. When switching to mocks, expire old server cookies so the client
+  // auth gate and the mock /me handler agree that the user is signed out.
+  if (mockMode && accessCookie && !/^\d+$/.test(accessCookie)) {
+    const next = pathname + request.nextUrl.search;
+    const response = isAuthPage
+      ? NextResponse.next()
+      : NextResponse.redirect(new URL(`/sign-in?next=${encodeURIComponent(next)}`, request.url));
+    response.cookies.set("sd_access", "", { path: "/", maxAge: 0 });
+    response.cookies.set("sd_refresh", "", { path: "/api/auth", maxAge: 0 });
+    response.cookies.set("sd_role", "", { path: "/", maxAge: 0 });
+    return response;
+  }
+
+  const hasSession = Boolean(accessCookie);
+
   if (isAuthPage) {
     if (!hasSession) return NextResponse.next();
     const next = request.nextUrl.searchParams.get("next");

@@ -18,6 +18,8 @@ export interface UserRecord {
   id: string;
   name: string;
   email: string;
+  /** Normalized Kenyan E.164 number; never included in public user responses. */
+  phone?: string | null;
   passwordHash: string | null;
   role: Role;
   status: UserStatus;
@@ -55,6 +57,7 @@ export interface PasswordResetRecord {
 export interface InviteRecord {
   id: string;
   email: string;
+  phone?: string | null;
   role: Role;
   tokenHash: string;
   invitedBy: string | null;

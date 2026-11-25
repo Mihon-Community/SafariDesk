@@ -5,24 +5,42 @@ import rateLimit from "express-rate-limit";
 
 import { Pool } from "pg";
 
-import { config } from "./config";
+import { config, validateRuntimeConfig } from "./config";
 import { logger } from "./logger";
 import { MemoryRepository } from "./auth/memoryStore";
 import { PgRepository } from "./auth/pgStore";
 import type { AuthRepository } from "./auth/repository";
 import { AuthService } from "./auth/service";
-import { bootstrapAdmin } from "./auth/bootstrap";
+import { bootstrapAdmin, bootstrapDemoAccounts } from "./auth/bootstrap";
 import { authRouter } from "./routes/auth";
 import { requireAdmin, requireAuth, requirePermission } from "./middleware/auth";
 import { errorMiddleware, notFound } from "./middleware/error";
 import { UsersService } from "./auth/users";
 import { usersRouter } from "./routes/users";
+import { africaTalkingWebhookRouter } from "./routes/webhooks";
+import { AtSmsGateway, AuthSmsDelivery, type AtSettings } from "./services/at";
+import { AtSmsReplyQueue, type SmsReplyQueue } from "./services/atQueue";
+import { MemoryAtStore, PgAtStore, type AtStore } from "./services/atStore";
+
+export interface AppIntegrationOptions {
+  atStore?: AtStore;
+  atSettings?: AtSettings;
+  smsReplyQueue?: SmsReplyQueue;
+  atWebhookNow?: () => Date;
+  atSessionTtlMs?: number;
+}
 
 export function createApp(
   repo: AuthRepository = new MemoryRepository(),
   service?: AuthService,
-): { app: Express; service: AuthService } {
-  const authService = service ?? new AuthService(repo);
+  integrations: AppIntegrationOptions = {},
+): { app: Express; service: AuthService; atStore: AtStore; smsGateway: AtSmsGateway } {
+  const atStore = integrations.atStore ?? new MemoryAtStore();
+  const atSettings = integrations.atSettings ?? config.at;
+  const smsGateway = new AtSmsGateway(atSettings, atStore);
+  const smsReplyQueue = integrations.smsReplyQueue ?? new AtSmsReplyQueue(smsGateway);
+  const delivery = new AuthSmsDelivery(smsGateway, atSettings.publicAppUrl);
+  const authService = service ?? new AuthService(repo, (event) => delivery.deliver(event));
   const usersService = new UsersService(repo, (event) => authService.notify(event));
   const app = express();
 
@@ -39,6 +57,20 @@ export function createApp(
       credentials: true,
     }),
   );
+  app.use(
+    africaTalkingWebhookRouter({
+      webhookToken: atSettings.webhookToken,
+      ussdServiceCode: atSettings.ussdServiceCode,
+      allowedPhones: atSettings.allowedPhones,
+      publicAppUrl: atSettings.publicAppUrl,
+      store: atStore,
+      replyQueue: smsReplyQueue,
+      rateLimitPerMinute: Number(process.env.AT_WEBHOOK_RATE_LIMIT ?? 120),
+      ...(integrations.atWebhookNow ? { now: integrations.atWebhookNow } : {}),
+      ...(integrations.atSessionTtlMs ? { sessionTtlMs: integrations.atSessionTtlMs } : {}),
+    }),
+  );
+
   app.use(express.json({ limit: "32kb" }));
 
   app.get("/health", (_req, res) => res.json({ ok: true, service: "safaridesk-api" }));
@@ -72,7 +104,7 @@ export function createApp(
   app.use("/api", notFound);
   app.use(errorMiddleware);
 
-  return { app, service: authService };
+  return { app, service: authService, atStore, smsGateway };
 }
 
 /**
@@ -80,11 +112,15 @@ export function createApp(
  * in-memory store (dev/tests). The demo admin is bootstrapped unless disabled.
  */
 export async function start(): Promise<void> {
-  const repo = config.databaseUrl
-    ? new PgRepository(new Pool({ connectionString: config.databaseUrl }))
-    : new MemoryRepository();
-  const { app } = createApp(repo);
-  if (config.nodeEnv !== "production") await bootstrapAdmin(repo);
+  validateRuntimeConfig();
+  const pool = config.databaseUrl ? new Pool({ connectionString: config.databaseUrl }) : null;
+  const repo = pool ? new PgRepository(pool) : new MemoryRepository();
+  const atStore = pool ? new PgAtStore(pool) : new MemoryAtStore();
+  const { app } = createApp(repo, undefined, { atStore });
+  if (config.nodeEnv !== "production") {
+    await bootstrapAdmin(repo);
+    if (!pool) await bootstrapDemoAccounts(repo);
+  }
 
   app.listen(config.port, () => {
     logger.info(
@@ -93,6 +129,9 @@ export async function start(): Promise<void> {
     );
     if (!config.databaseUrl) {
       logger.info("DATABASE_URL not set — using the in-memory auth store (data resets on restart).");
+      if (config.at.webhookToken) {
+        logger.warn("DATABASE_URL not set — Africa's Talking callback deduplication and USSD sessions will reset on restart.");
+      }
     }
   });
 }

@@ -11,7 +11,7 @@ cookie auth + RBAC (Phase 7–8) · MSW mocks until the domain backend runs.
 
 ```bash
 # Frontend (mocks on by default)
-cd frontend && npm install && npm run dev        # http://localhost:3000
+cd frontend && npm install && npm run dev        # http://localhost:3002
 
 # Backend API (auth/RBAC; domain routes are mocked)
 cd backend && npm install

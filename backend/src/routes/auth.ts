@@ -90,6 +90,7 @@ const forgotSchema = z.object({ email: z.email() });
 const inviteSchema = z.object({
   email: z.email(),
   role: z.enum(ROLES as unknown as [Role, ...Role[]]),
+  phone: z.string().max(24).optional(),
 });
 
 const acceptInviteSchema = z.object({
@@ -218,7 +219,7 @@ export function authRouter(service: AuthService, adminGuard: (req: Request) => P
     wrap(async (req, res) => {
       const actorId = await adminGuard(req);
       const body = inviteSchema.parse(req.body);
-      const result = await service.invite(actorId, body.email, body.role, contextFrom(req));
+      const result = await service.invite(actorId, body.email, body.role, contextFrom(req), body.phone);
       res.status(201).json(result);
     }),
   );

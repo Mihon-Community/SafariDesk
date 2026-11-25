@@ -11,13 +11,14 @@ import type { AuthRepository } from "./repository";
 
 type UserRow = Record<string, unknown>;
 
-const USER_COLUMNS = "id, name, email, password_hash, role, status, requested_role, failed_attempts, locked_until, last_login_at, created_at";
+const USER_COLUMNS = "id, name, email, phone_e164, password_hash, role, status, requested_role, failed_attempts, locked_until, last_login_at, created_at";
 
 function mapUser(row: UserRow): UserRecord {
   return {
     id: String(row.id),
     name: row.name as string,
     email: row.email as string,
+    phone: (row.phone_e164 as string | null) ?? null,
     passwordHash: (row.password_hash as string) ?? null,
     role: row.role as UserRecord["role"],
     status: row.status as UserRecord["status"],
@@ -59,6 +60,7 @@ function mapInvite(row: UserRow): InviteRecord {
   return {
     id: String(row.id),
     email: row.email as string,
+    phone: (row.phone_e164 as string | null) ?? null,
     role: row.role as InviteRecord["role"],
     tokenHash: row.token_hash as string,
     invitedBy: row.invited_by ? String(row.invited_by) : null,
@@ -116,10 +118,10 @@ export class PgRepository implements AuthRepository {
     user: Omit<UserRecord, "createdAt" | "failedAttempts" | "lockedUntil" | "lastLoginAt">,
   ): Promise<UserRecord> {
     const { rows } = await this.pool.query<UserRow>(
-      `INSERT INTO users (id, name, email, password_hash, role, status, requested_role)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (id, name, email, phone_e164, password_hash, role, status, requested_role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING ${USER_COLUMNS}`,
-      [user.id, user.name, user.email, user.passwordHash, user.role, user.status, user.requestedRole ?? null],
+      [user.id, user.name, user.email, user.phone ?? null, user.passwordHash, user.role, user.status, user.requestedRole ?? null],
     );
     return mapUser(rows[0]!);
   }
@@ -133,6 +135,7 @@ export class PgRepository implements AuthRepository {
     };
     if (patch.name !== undefined) add("name", patch.name);
     if (patch.email !== undefined) add("email", patch.email);
+    if (patch.phone !== undefined) add("phone_e164", patch.phone);
     if (patch.passwordHash !== undefined) add("password_hash", patch.passwordHash);
     if (patch.role !== undefined) add("role", patch.role);
     if (patch.status !== undefined) add("status", patch.status);
@@ -233,9 +236,9 @@ export class PgRepository implements AuthRepository {
   // ----------------------------------------------------------------- invites
   async createInvite(invite: InviteRecord): Promise<void> {
     await this.pool.query(
-      `INSERT INTO invites (id, email, role, token_hash, invited_by, expires_at, accepted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [invite.id, invite.email, invite.role, invite.tokenHash, invite.invitedBy, invite.expiresAt, invite.acceptedAt],
+      `INSERT INTO invites (id, email, phone_e164, role, token_hash, invited_by, expires_at, accepted_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [invite.id, invite.email, invite.phone ?? null, invite.role, invite.tokenHash, invite.invitedBy, invite.expiresAt, invite.acceptedAt],
     );
   }
 
@@ -266,11 +269,11 @@ export class PgRepository implements AuthRepository {
   ): Promise<UserRecord> {
     return this.withTx(async (client) => {
       const { rows } = await client.query<UserRow>(
-        `INSERT INTO users (id, name, email, password_hash, role, status, requested_role)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO users (id, name, email, phone_e164, password_hash, role, status, requested_role)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (email) DO NOTHING
          RETURNING ${USER_COLUMNS}`,
-        [user.id, user.name, user.email, user.passwordHash, user.role, user.status, user.requestedRole ?? null],
+        [user.id, user.name, user.email, invite.phone ?? user.phone ?? null, user.passwordHash, user.role, user.status, user.requestedRole ?? null],
       );
       if (!rows[0]) throw new Error("EMAIL_TAKEN");
       await client.query(`UPDATE invites SET accepted_at = now() WHERE id = $1`, [invite.id]);
