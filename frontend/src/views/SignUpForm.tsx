@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
+  ArrowRight,
   Car,
   Eye,
   EyeOff,
@@ -105,14 +106,18 @@ export default function SignUpForm() {
 
   if (pendingRole) {
     return (
-      <div className="space-y-3 text-center text-sm">
-        <MailCheck className="mx-auto h-8 w-8 text-primary" aria-hidden />
-        <p className="font-medium">Request sent</p>
-        <p className="text-muted-foreground">
-          An admin will review your request for the{" "}
-          <span className="font-medium text-foreground">{pendingRole}</span> role. We&apos;ll
-          notify you by SMS or email once it&apos;s decided.
-        </p>
+      <div className="space-y-4 text-center text-sm">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-8 ring-primary/5">
+          <MailCheck className="h-7 w-7" aria-hidden />
+        </span>
+        <div>
+          <p className="text-lg font-semibold">Request sent</p>
+          <p className="mt-2 text-muted-foreground">
+            An admin will review your request for the{" "}
+            <span className="font-semibold capitalize text-foreground">{pendingRole}</span> role.
+            We&apos;ll notify you by SMS or email once it&apos;s decided.
+          </p>
+        </div>
         <Button variant="outline" className="w-full" onClick={() => router.push("/sign-in")}>
           Back to sign in
         </Button>
@@ -122,8 +127,16 @@ export default function SignUpForm() {
 
   if (step === "role") {
     return (
-      <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">What brings you to SafariDesk?</p>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-primary">Step 1 of 2</p>
+            <p className="mt-1 text-sm font-semibold">What brings you to SafariDesk?</p>
+          </div>
+          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+            <span className="block h-full w-1/2 rounded-full bg-primary" />
+          </span>
+        </div>
         <div role="radiogroup" aria-label="Choose your role" className="grid gap-2 sm:grid-cols-2">
           {SIGNUP_ROLES.map((item) => {
             const Icon = ROLE_ICONS[item.role] ?? UserRound;
@@ -135,25 +148,32 @@ export default function SignUpForm() {
                 role="radio"
                 aria-checked={active}
                 onClick={() => setRole(item.role)}
-                className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:first:col-span-2 ${
                   active
-                    ? "border-primary bg-accent/10"
+                    ? "border-primary bg-accent/10 shadow-sm ring-1 ring-primary/30"
                     : "bg-card hover:border-primary/40"
                 }`}
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary">
+                <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-primary"}`}>
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
-                <span>
-                  <span className="block text-sm font-medium">{item.title}</span>
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-medium">{item.title}</span>
+                    {item.needsApproval && (
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        Approval required
+                      </span>
+                    )}
+                  </span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">{item.blurb}</span>
                 </span>
               </button>
             );
           })}
         </div>
-        <Button className="w-full" onClick={() => setStep("form")}>
-          Continue as {selected.title}
+        <Button className="w-full gap-2" onClick={() => setStep("form")}>
+          Continue as {selected.title} <ArrowRight className="h-4 w-4" />
         </Button>
         <p className="text-center text-xs text-muted-foreground">
           Already registered?{" "}
@@ -167,33 +187,38 @@ export default function SignUpForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">
-          Signing up as <span className="text-primary">{selected.title}</span>
-        </p>
+      <div className="flex items-center justify-between gap-3 border-b pb-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-primary">Step 2 of 2</p>
+          <p className="mt-1 text-sm font-medium">
+            Signing up as <span className="font-semibold text-primary">{selected.title}</span>
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => setStep("role")}
-          className="text-xs font-medium text-muted-foreground hover:text-foreground"
+          className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
         >
-          Change
+          ← Change role
         </button>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="name">Full name</Label>
-        <Input id="name" autoComplete="name" {...register("name")} />
-        {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="name">Full name</Label>
+          <Input id="name" autoComplete="name" {...register("name")} />
+          {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email address</Label>
+          <Input id="email" type="email" autoComplete="email" {...register("email")} />
+          {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+        </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" autoComplete="email" {...register("email")} />
-        {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="phone">Phone</Label>
+        <Label htmlFor="phone">Phone (+254)</Label>
         <Input
           id="phone"
           type="tel"

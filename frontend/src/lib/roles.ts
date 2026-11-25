@@ -30,10 +30,10 @@ export const SIGNUP_ROLES: Array<{
   needsApproval: boolean;
 }> = [
   { role: "customer", title: "Traveller", blurb: "Book and manage your own safaris.", needsApproval: false },
-  { role: "driver", title: "Driver", blurb: "Drive safari trips; needs admin approval.", needsApproval: true },
-  { role: "agent", title: "Sales / front desk", blurb: "Create quotes and bookings; needs approval.", needsApproval: true },
-  { role: "operations", title: "Operations / dispatch", blurb: "Allocate drivers and vehicles; needs approval.", needsApproval: true },
-  { role: "finance", title: "Finance", blurb: "Payments, invoices and revenue; needs approval.", needsApproval: true },
+  { role: "driver", title: "Driver", blurb: "Drive safari trips and update trip status.", needsApproval: true },
+  { role: "agent", title: "Sales / front desk", blurb: "Create quotes and manage bookings.", needsApproval: true },
+  { role: "operations", title: "Operations / dispatch", blurb: "Allocate drivers and vehicles.", needsApproval: true },
+  { role: "finance", title: "Finance", blurb: "Payments, invoices and revenue.", needsApproval: true },
 ];
 
 /** Demo credentials used by the dev-only quick sign-in buttons. */
