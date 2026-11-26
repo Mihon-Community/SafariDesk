@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { CalendarDays, MapPin, ReceiptText, Star, UsersRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 

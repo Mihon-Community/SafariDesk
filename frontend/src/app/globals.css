@@ -857,12 +857,48 @@ body {
   .hero-birds { display: none; }
 }
 
-/* Editorial typography for the marketing pages only. Uses system serif so no
-   font download or new dependency is needed. */
+/* Editorial display type, shared by marketing headings and app page titles.
+   Uses a system serif: no font download or new dependency. */
+.display-type,
 .landing-display {
   font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
   font-weight: 600;
   letter-spacing: -0.025em;
+}
+
+/* One card language: surface, interactive lift, media, chip, divider. */
+.card-surface {
+  background-color: var(--card);
+  border-color: var(--border);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+.card-interactive {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -14px color-mix(in oklab, var(--brand) 45%, transparent);
+    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+  }
+}
+.card-interactive:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.card-media {
+  background-color: var(--muted);
+}
+.card-chip {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+.card-divider {
+  border-color: var(--border);
 }
 .landing-shell :where(a, button, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--ring);

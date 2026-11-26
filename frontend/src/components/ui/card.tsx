@@ -9,16 +9,15 @@ import { cn } from "@/lib/cn";
  * background/border transitions, visible focus ring.
  */
 export const cardVariants = cva(
-  "rounded-xl border bg-card text-card-foreground shadow-[var(--shadow-card)] transition-[transform,opacity,background-color,border-color,box-shadow] duration-150 ease-out",
+  "card-surface rounded-xl border text-card-foreground transition-[transform,opacity,background-color,border-color,box-shadow] duration-150 ease-out",
   {
     variants: {
       variant: {
         default: "",
-        interactive:
-          "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        interactive: "card-interactive cursor-pointer",
         highlight: "border-t-[3px] border-t-primary",
         muted: "bg-muted shadow-none",
-        glass: "bg-card/70 backdrop-blur-md border-white/10 shadow-none",
+        glass: "bg-card/70 backdrop-blur-md border-brand-foreground/15 shadow-none",
       },
     },
     defaultVariants: {
