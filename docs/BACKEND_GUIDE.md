@@ -163,7 +163,8 @@ and USSD menu. Send these commands to the Sandbox shortcode:
 | `PARKS` | Lists up to four destinations with numbers |
 | `PARKS 2` | Lists the next page, if present |
 | A listed number or park name | Sends that destination's short description and booking guidance |
-| `BOOK` | Links to the website and explains that an operator confirms dates, availability and rates |
+| `BOOK` | Starts guided SMS booking: park, date, guest count, days, pickup, lead guest, email, residency, confirmation |
+| `PAY` or `PAY <booking number>` | Gives the guest the USSD code and steps to pay a quoted deposit |
 | `STOP` / `START` | Stops / re-enables service messages |
 
 When more destinations exist, the list tells the guest which `PARKS <page>`
@@ -207,6 +208,15 @@ guide](https://help.africastalking.com/en/articles/742491-why-did-my-messages-fa
 The one-time test invite row was removed from PostgreSQL after checking the
 message; the SMS delivery audit row remains.
 
+To test booking by SMS, text `BOOK` in the Sandbox simulator and answer each
+prompt. A confirmed request is stored with `quoteStatus=REQUESTED` and no amount;
+staff can quote it from configured rates or enter a total already agreed with
+the guest in the booking detail page. When staff save the quote, the guest
+receives its total, deposit, and the `dial <USSD code>,
+choose 3, enter the booking number` instructions. SMS replies `PAY` and
+`PAY <booking number>` also return the payment steps. The guest email collected
+in the booking is used for the Paystack payment request.
+
 ## 6. Verify USSD
 
 In Africa's Talking Sandbox USSD simulator, select the configured USSD service
@@ -215,12 +225,22 @@ code and an allowed Kenyan test number. Expected menu:
 ```text
 CON SafariDesk
 1. Safari destinations
-2. Booking help
+2. Request booking
+3. Pay a deposit
+4. Booking help
 0. Exit
 ```
 
-Reply `1` to see the destination list, then choose a destination to see a short
-highlight and booking guidance. Reply `2` for booking help or `0` to exit. The
+Reply `1` to see destinations. Choose `2` to create a request; the menu collects
+destination, travel date, guest count, trip length, pickup, lead guest name,
+email, residency, and confirmation. The request is saved without a price until
+an operator quotes it from configured rates or an agreed manual total. Choose `3`, then enter the booking
+number to pay a quoted deposit. SafariDesk creates a Paystack M-PESA offline
+payment and returns the Paybill, account reference, and exact KES deposit.
+Repeating the same callback does not create another payment request. The booking
+is marked deposit-paid only after a valid Paystack `charge.success` webhook with
+the matching KES amount and reference. Choose `4` for booking help or `0` to
+exit. The
 API stores session state and the park catalogue in PostgreSQL. A fresh database
 gets four real destinations from a one-time migration; additional park records
 created through the Rates API appear in the menu automatically. If the catalogue
@@ -279,6 +299,27 @@ route and confirms that both outbound Sandbox replies were accepted with provide
 code `101`. For a full simulator round-trip, send `PARKS` and then `1` from an
 Africa's Talking Sandbox SMS simulator session and check the reply thread there.
 
+### Paystack payment setup
+
+Set `PAYSTACK_SECRET_KEY` and the Paystack webhook signing secret
+`PAYSTACK_WEBHOOK_SECRET` in `backend/.env`, restart the backend, and register
+this endpoint in Paystack's test settings:
+
+```text
+https://<ngrok-host>/api/webhooks/paystack
+```
+
+Use the `whsec_...` value from Paystack's Developers API configuration as the
+webhook signing secret. Do not use a public key or the Africa's Talking callback
+token. Before quoting guests, staff must add a destination, matching package,
+park fees for the guest residency, and driver/vehicle day rates in **Rates**.
+SafariDesk does not supply sample prices. Paystack's Kenyan M-PESA offline flow
+creates a charge with `mobile_money.provider=mpesa_offline`, then reports
+completion by webhook; SafariDesk waits for that verified event before marking
+the deposit paid. See [Paystack M-PESA offline
+payments](https://paystack.com/docs/v2/ke/payments/channels/mpesa) and
+[webhook signature verification](https://paystack.com/docs/v2/ke/developer-tools/integration/webhooks).
+
 ## 7. PostgreSQL MCP
 
 The workspace MCP configuration is `.vscode/mcp.json`. `safaridesk-postgres`
@@ -313,8 +354,10 @@ npm.cmd run build
 ```
 
 The Python suite covers auth, permissions, business API contracts, SMS
-provider response handling, callback authentication, and USSD sessions. It
-uses a mocked provider transport and does not send SMS. Browser verification
+provider response handling, callback authentication, SMS and USSD booking
+requests, quoting, Paystack charge parameters, webhook verification, and
+duplicate callback behavior. It uses mocked providers and does not send SMS or
+create a real charge. Browser verification
 with Playwright confirmed sign-in, PostgreSQL-backed page data, navigation across
 the authenticated pages, and one staff invitation. Africa's Talking accepted
 the invite request with HTTP 201 and recipient status `Success` / code `101`; no
@@ -331,8 +374,9 @@ behavior](https://help.africastalking.com/en/articles/1170660-how-do-i-get-start
 [SMS delivery failure reasons](https://help.africastalking.com/en/articles/742491-why-did-my-messages-fail),
 and [SMS status codes](https://help.africastalking.com/en/articles/16150386-messaging-error-codes).
 
-Checks run for this migration: Python `pytest` (31 passed), frontend
-`npm.cmd run lint`, `npm.cmd run typecheck`, and `npm.cmd run build` all passed.
+Booking and payment checks run 26 Nov 2026: Python `pytest` (41 passed),
+frontend `npm.cmd run typecheck`, and `npm.cmd run build` passed. Provider calls
+in the tests use mocked Paystack and Africa's Talking responses.
 
 Playwright loaded all eleven signed-in routes (`/dashboard`, `/bookings`,
 `/bookings/new`, `/dispatch`, `/payments`, `/alerts`, `/rates`, `/feedback`,

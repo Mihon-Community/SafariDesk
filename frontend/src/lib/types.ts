@@ -41,6 +41,7 @@ export interface Guest {
   id: number;
   name: string;
   phone: string;
+  email?: string;
   residency: Residency;
   loyaltyPoints?: number;
   referralCode?: string | null;
@@ -98,13 +99,19 @@ export interface CreateBookingInput {
 export interface Booking {
   id: number;
   guestId: number;
-  packageId: number;
-  parkId: number;
+  packageId: number | null;
+  parkId: number | null;
   startDate: string;
   endDate: string;
+  tripDays?: number;
   pax: number;
   total: number;
   depositDue: number;
+  quoteStatus?: "REQUESTED" | "QUOTED";
+  destinationName?: string;
+  pickupLocation?: string;
+  quoteSmsAccepted?: boolean;
+  paymentInstructions?: string | null;
   quoteBreakdown: QuoteBreakdown | null;
   status: BookingStatus;
   source: BookingSource;

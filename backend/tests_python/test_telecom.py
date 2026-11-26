@@ -1,8 +1,10 @@
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from urllib.parse import parse_qs
 
@@ -59,6 +61,73 @@ class FakeConnection:
 
         if normalized.startswith("select payload from business_records where record_type = %s"):
             return Cursor(rows=[{"payload": {"name": item["name"]}} for item in self.state["parks"]])
+
+        if normalized.startswith("select id, payload from business_records where record_type = %s"):
+            return Cursor(rows=[{"id": item.get("id", index), "payload": {"name": item["name"]}}
+                                for index, item in enumerate(self.state["parks"], 1)])
+
+        if normalized.startswith("select id, payload, created_at from business_records"):
+            record_type = params[0]
+            records = [item for item in self.state["records"] if item["record_type"] == record_type]
+            if "and id = %s" in normalized:
+                records = [item for item in records if item["id"] == int(params[1])]
+            if "payload->>'providerref' = %s" in normalized:
+                records = [item for item in records if item["payload"].get("providerRef") == params[1]]
+            rows = [{"id": item["id"], "payload": dict(item["payload"]), "created_at": item["created_at"]}
+                    for item in records]
+            return Cursor(rows[0] if rows else None, rows)
+
+        if normalized.startswith("insert into business_records"):
+            record_type, encoded = params
+            record = {
+                "id": self.state["next_record_id"],
+                "record_type": record_type,
+                "payload": json.loads(encoded),
+                "created_at": datetime.now(timezone.utc),
+            }
+            self.state["next_record_id"] += 1
+            self.state["records"].append(record)
+            return Cursor({"id": record["id"]})
+
+        if normalized.startswith("update business_records set payload = %s::jsonb, updated_at = now()"):
+            encoded, record_type, record_id = params
+            item = next((item for item in self.state["records"]
+                         if item["record_type"] == record_type and item["id"] == int(record_id)), None)
+            if item is None:
+                return Cursor()
+            item["payload"] = json.loads(encoded)
+            return Cursor({"id": item["id"]})
+
+        if normalized.startswith("update business_records set payload = %s::jsonb, updated_at = %s"):
+            encoded, _updated_at, record_type, record_id = params
+            item = next((item for item in self.state["records"]
+                         if item["record_type"] == record_type and item["id"] == int(record_id)), None)
+            if item is None:
+                return Cursor()
+            item["payload"] = json.loads(encoded)
+            return Cursor()
+
+        if normalized.startswith("delete from sms_booking_sessions where expires_at <= %s"):
+            now = params[0]
+            self.state["booking_sessions"] = {
+                key: item for key, item in self.state["booking_sessions"].items()
+                if item["expires_at"] > now
+            }
+            return Cursor()
+
+        if normalized.startswith("select state, expires_at from sms_booking_sessions"):
+            return Cursor(self.state["booking_sessions"].get(params[0]))
+
+        if normalized.startswith("insert into sms_booking_sessions"):
+            phone_hash, raw_state, expires_at, updated_at = params
+            self.state["booking_sessions"][phone_hash] = {
+                "state": json.loads(raw_state), "expires_at": expires_at, "updated_at": updated_at,
+            }
+            return Cursor()
+
+        if normalized.startswith("delete from sms_booking_sessions"):
+            self.state["booking_sessions"].pop(params[0], None)
+            return Cursor()
 
         if normalized.startswith("insert into sms_messages"):
             (row_id, provider_id, recipient_hash, event_kind, api_status,
@@ -122,10 +191,17 @@ class FakeConnection:
 
         raise AssertionError(f"Unexpected SQL in fake database: {normalized}")
 
+    @contextmanager
+    def transaction(self):
+        yield self
+
 
 class FakePool:
     def __init__(self):
-        self.state = {"sms": {}, "sessions": {}, "inbound": {}, "optouts": {}, "parks": []}
+        self.state = {
+            "sms": {}, "sessions": {}, "booking_sessions": {}, "inbound": {}, "optouts": {},
+            "parks": [], "records": [], "next_record_id": 1,
+        }
 
     @contextmanager
     def connection(self):
@@ -285,7 +361,7 @@ def test_ussd_returns_persistent_con_and_end_plain_text():
     })
     assert first.status_code == 200
     assert first.headers["content-type"].startswith("text/plain")
-    assert first.text == "CON SafariDesk\n1. Safari destinations\n2. Booking help\n0. Exit"
+    assert first.text == "CON SafariDesk\n1. Safari destinations\n2. Request booking\n3. Pay a deposit\n4. Booking help\n0. Exit"
 
     selected = client.post("/ussd", params={"token": TOKEN}, data={
         "sessionId": "session-one",
@@ -454,10 +530,6 @@ def test_inbound_sms_browses_postgres_destinations_and_sends_details():
     assert send("sms-help", "help").status_code == 200
     assert "PARKS" in sent[-1][1] and "BOOK" in sent[-1][1]
 
-    assert send("sms-book", "book").status_code == 200
-    assert "PARKS" in sent[-1][1] and "/parks" in sent[-1][1]
-    assert "availability" in sent[-1][1]
-
     assert send("sms-parks", "parks").status_code == 200
     assert "1. Maasai Mara" in sent[-1][1]
     assert "2. Amboseli" in sent[-1][1]
@@ -492,6 +564,157 @@ def test_inbound_sms_browses_postgres_destinations_and_sends_details():
 
     assert send("sms-number-page-3", "12").status_code == 200
     assert sent[-1][1].startswith("Aberdare National Park: Ask SafariDesk")
+
+    assert send("sms-book", "book").status_code == 200
+    assert "park name" in sent[-1][1] and "PARKS" in sent[-1][1]
+
+
+def _seed_record(pool, record_type, payload):
+    record_id = pool.state["next_record_id"]
+    pool.state["next_record_id"] += 1
+    pool.state["records"].append({
+        "id": record_id,
+        "record_type": record_type,
+        "payload": dict(payload),
+        "created_at": datetime.now(timezone.utc),
+    })
+    return record_id
+
+
+def test_sms_booking_collects_guest_count_dates_pickup_and_contact():
+    pool = FakePool()
+    pool.state["parks"] = [{"id": 41, "name": "Test Park"}]
+    sent = []
+
+    async def sender(_pool, _settings, phone, message, event_kind="notification"):
+        sent.append((phone, message, event_kind))
+        return {"accepted": True}
+
+    client = TestClient(make_app(pool, sms_sender=sender))
+    future = (date.today() + timedelta(days=30)).isoformat()
+
+    def send(provider_id, text):
+        return client.post("/webhook/incoming", params={"token": TOKEN}, data={
+            "id": provider_id, "from": PHONE, "text": text,
+        })
+
+    assert "park name" in send("booking-0", "BOOK").text or "park name" in sent[-1][1]
+    inputs = ["1", future, "3", "2", "Nairobi CBD", "Amara Otieno", "amara@example.com", "1", "YES"]
+    for index, value in enumerate(inputs, start=1):
+        response = send(f"booking-{index}", value)
+        assert response.status_code == 200
+
+    guest = next(item for item in pool.state["records"] if item["record_type"] == "guests")
+    booking = next(item for item in pool.state["records"] if item["record_type"] == "bookings")
+    assert guest["payload"]["email"] == "amara@example.com"
+    assert booking["payload"]["source"] == "sms"
+    assert booking["payload"]["parkId"] == 41
+    assert booking["payload"]["pax"] == 3
+    assert booking["payload"]["tripDays"] == 2
+    assert booking["payload"]["pickupLocation"] == "Nairobi CBD"
+    assert booking["payload"]["quoteStatus"] == "REQUESTED"
+    assert booking["payload"]["total"] == 0 and booking["payload"]["depositDue"] == 0
+    assert "dial" in sent[-1][1].lower() and "choose 3" in sent[-1][1].lower()
+
+
+def test_ussd_booking_saves_same_trip_details_and_rejects_payment_until_quoted():
+    pool = FakePool()
+    pool.state["parks"] = [{"id": 41, "name": "Test Park"}]
+    client = TestClient(make_app(pool))
+    future = (date.today() + timedelta(days=30)).isoformat()
+    fields = ["2", "2*1", f"2*1*{future}", f"2*1*{future}*3", f"2*1*{future}*3*2",
+              f"2*1*{future}*3*2*Nairobi CBD", f"2*1*{future}*3*2*Nairobi CBD*Amara Otieno",
+              f"2*1*{future}*3*2*Nairobi CBD*Amara Otieno*amara@example.com",
+              f"2*1*{future}*3*2*Nairobi CBD*Amara Otieno*amara@example.com*1"]
+
+    def ussd(text, session="booking-flow"):
+        return client.post("/ussd", params={"token": TOKEN}, data={
+            "sessionId": session, "serviceCode": SERVICE_CODE, "phoneNumber": PHONE, "text": text,
+        })
+
+    assert ussd(fields[0]).text.startswith("CON ")
+    assert ussd(fields[1]).text.startswith("CON Enter travel start date")
+    for text in fields[2:]:
+        assert ussd(text).text.startswith("CON ")
+    final = f"{fields[-1]}*1"
+    assert "Booking request #" in ussd(final).text
+
+    booking = next(item for item in pool.state["records"] if item["record_type"] == "bookings")
+    guest = next(item for item in pool.state["records"] if item["record_type"] == "guests")
+    assert booking["payload"]["source"] == "ussd"
+    assert booking["payload"]["pax"] == 3 and booking["payload"]["tripDays"] == 2
+    assert booking["payload"]["pickupLocation"] == "Nairobi CBD"
+    assert guest["payload"]["email"] == "amara@example.com"
+    assert ussd(f"3*{booking['id']}", session="pay-before-quote").text == f"END Booking #{booking['id']} needs an operator quote before payment."
+
+
+def test_ussd_paystack_payment_is_idempotent_and_webhook_marks_only_verified_amount():
+    pool = FakePool()
+    guest_id = _seed_record(pool, "guests", {
+        "name": "Amara Otieno", "phone": PHONE, "email": "amara@example.com", "residency": "citizen",
+    })
+    booking_id = _seed_record(pool, "bookings", {
+        "guestId": guest_id, "quoteStatus": "QUOTED", "depositDue": 1500,
+        "total": 5000, "status": "PENDING",
+    })
+    calls = []
+
+    def charger(secret, *, email, amount_kes, reference):
+        calls.append((secret, email, amount_kes, reference))
+        return {"accepted": True, "reference": reference, "accountNumber": "123456", "accountReference": reference}
+
+    config = settings(paystack_secret_key="sk_test_example", at_allowed_phones=(PHONE, "+254722222222"))
+    client = TestClient(make_app(pool, config, paystack_charger=charger))
+    payload = {"serviceCode": SERVICE_CODE, "phoneNumber": PHONE}
+    other_user = client.post("/ussd", params={"token": TOKEN}, data={
+        **payload, "sessionId": "not-owner", "phoneNumber": "+254722222222", "text": f"3*{booking_id}",
+    })
+    assert "not linked to your phone" in other_user.text and calls == []
+    first = client.post("/ussd", params={"token": TOKEN}, data={**payload, "sessionId": "pay-session", "text": "3"})
+    assert first.text.startswith("CON Enter your booking number")
+    payment_response = client.post("/ussd", params={"token": TOKEN}, data={
+        **payload, "sessionId": "pay-session", "text": f"3*{booking_id}",
+    })
+    assert payment_response.text == "END Paybill 123456; account " + calls[0][3] + "; KES 1500. Pay in M-Pesa: Lipa na M-Pesa > Paybill."
+    replay = client.post("/ussd", params={"token": TOKEN}, data={
+        **payload, "sessionId": "pay-session", "text": f"3*{booking_id}",
+    })
+    assert replay.text == payment_response.text and len(calls) == 1
+
+    payment = next(item for item in pool.state["records"] if item["record_type"] == "payments")
+    reference = payment["payload"]["providerRef"]
+    body = json.dumps({"event": "charge.success", "data": {
+        "reference": reference, "status": "success", "currency": "KES", "amount": 150000,
+    }}).encode()
+    signature = hmac.new(b"sk_test_example", body, hashlib.sha512).hexdigest()
+    webhook = client.post("/api/webhooks/paystack", content=body, headers={
+        "content-type": "application/json", "x-paystack-signature": signature,
+    })
+    assert webhook.status_code == 200
+    assert payment["payload"]["status"] == "SUCCESS"
+    assert next(item for item in pool.state["records"] if item["record_type"] == "bookings")["payload"]["status"] == "DEPOSIT_PAID"
+    duplicate = client.post("/api/webhooks/paystack", content=body, headers={
+        "content-type": "application/json", "x-paystack-signature": signature,
+    })
+    assert duplicate.status_code == 200
+
+
+def test_sms_pay_instruction_requires_guest_booking_ownership():
+    pool = FakePool()
+    guest_id = _seed_record(pool, "guests", {"phone": PHONE, "email": "amara@example.com"})
+    booking_id = _seed_record(pool, "bookings", {"guestId": guest_id, "quoteStatus": "QUOTED", "depositDue": 1500})
+    sent = []
+
+    async def sender(_pool, _settings, phone, message, event_kind="notification"):
+        sent.append(message)
+        return {"accepted": True}
+
+    client = TestClient(make_app(pool, sms_sender=sender))
+    response = client.post("/webhook/incoming", params={"token": TOKEN}, data={
+        "id": "sms-pay", "from": PHONE, "text": f"PAY {booking_id}",
+    })
+    assert response.status_code == 200
+    assert SERVICE_CODE in sent[-1] and "choose 3" in sent[-1].lower() and str(booking_id) in sent[-1]
 
 
 def test_delivery_report_accepts_query_token_and_maps_delivered_to_success():

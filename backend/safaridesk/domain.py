@@ -219,6 +219,15 @@ def _serialize_booking(pool: ConnectionPool, booking: dict[str, Any]) -> dict[st
     return result
 
 
+def _payment_instructions(settings: Any, booking: Mapping[str, Any]) -> str | None:
+    if booking.get("quoteStatus") != "QUOTED" or _int(booking.get("depositDue")) < 3:
+        return None
+    service_code = str(getattr(settings, "at_ussd_service_code", "") or "").strip()
+    if not service_code:
+        return None
+    return f"Dial {service_code}, choose 3, enter booking {booking.get('id')}, then pay the displayed M-Pesa Paybill and account reference."
+
+
 def _serialize_assignment(pool: ConnectionPool, assignment: dict[str, Any]) -> dict[str, Any]:
     result = dict(assignment)
     driver = _get(pool, "drivers", _int(assignment.get("driverId"), -1))
@@ -519,6 +528,86 @@ def build_domain_router(
         })
         return _serialize_booking(pool, record)
 
+    @router.post("/bookings/{record_id}/quote", dependencies=permission("bookings:write"))
+    def quote_booking_request(record_id: str, body: Any = Body(default=None), actor: dict[str, Any] = Depends(auth_dependency)) -> Any:
+        data = _body(body)
+        if set(data) - {"packageId", "manualTotal", "depositPct"}:
+            raise DomainError(400, "VALIDATION", "Only packageId, manualTotal and depositPct are accepted.")
+        has_package = "packageId" in data
+        has_manual_total = "manualTotal" in data
+        if has_package == has_manual_total:
+            raise DomainError(400, "VALIDATION", "Choose a configured package or enter an agreed manual total.")
+        booking = _get(pool, "bookings", _parse_id(record_id))
+        if not booking:
+            return _error(404, "NOT_FOUND", "Booking not found.")
+        if booking.get("quoteStatus") != "REQUESTED":
+            raise DomainError(409, "QUOTE", "This booking is not waiting for an operator quote.")
+
+        start = _date(booking.get("startDate"), "startDate")
+        deposit_pct = _number(data, "depositPct", minimum=10, maximum=100) if "depositPct" in data else 30
+        package = None
+        if has_package:
+            package_id = _integer(data, "packageId", minimum=1)
+            package = _get(pool, "packages", package_id)
+            if not package or _int(package.get("parkId"), -1) != _int(booking.get("parkId"), -2):
+                raise DomainError(400, "QUOTE", "Choose an active package for the requested destination.")
+            requested_days = _int(booking.get("tripDays"), 0)
+            package_days = _int(package.get("days"), 0)
+            if requested_days and package_days != requested_days:
+                raise DomainError(400, "QUOTE", "Choose a package matching the requested trip length.")
+            quote = _quote(
+                pool,
+                package_id,
+                _int(booking.get("pax"), 0),
+                str(booking.get("residency") or ""),
+                start,
+                deposit_pct,
+            )
+            quote_source = "rates"
+        else:
+            manual_total = _integer(data, "manualTotal", minimum=3, maximum=1_000_000_000)
+            quote = {
+                "total": manual_total,
+                "depositDue": int(round(manual_total * deposit_pct / 100)),
+                "breakdown": None,
+            }
+            quote_source = "manual"
+        if quote["total"] < 3 or quote["depositDue"] < 3:
+            raise DomainError(409, "QUOTE", "The quote must produce a deposit of at least KES 3.")
+        package_id = _int(package.get("id"), 0) if package else None
+        package_days = _int(package.get("days"), _int(booking.get("tripDays"), 1)) if package else _int(booking.get("tripDays"), 1)
+        updated = _update(pool, "bookings", booking["id"], {
+            **booking_without_meta(booking),
+            "packageId": package_id,
+            "endDate": (start + timedelta(days=package_days - 1)).isoformat(),
+            "total": quote["total"],
+            "depositDue": quote["depositDue"],
+            "depositPct": deposit_pct,
+            "quoteBreakdown": quote["breakdown"],
+            "quoteStatus": "QUOTED",
+            "quoteSource": quote_source,
+            "quotedBy": _user_id(actor),
+            "quotedAt": datetime.now(timezone.utc).isoformat(),
+        })
+        assert updated is not None
+        sms = {"accepted": False, "reason": "guest_phone_missing"}
+        guest = _guest_for_booking(pool, updated)
+        service_code = str(getattr(settings, "at_ussd_service_code", "") or "").strip()
+        if guest and guest.get("phone") and service_code:
+            sms = _send_sms(
+                sms_sender,
+                pool,
+                settings,
+                str(guest["phone"]),
+                f"SafariDesk #{booking['id']} quote KES {quote['total']}; deposit KES {quote['depositDue']}. Pay: dial {service_code}, choose 3, enter {booking['id']}. Text PAY {booking['id']} for help.",
+                "booking_quote",
+            )
+        return {
+            **_serialize_booking(pool, updated),
+            "quoteSmsAccepted": bool(sms.get("accepted")),
+            "paymentInstructions": _payment_instructions(settings, updated),
+        }
+
     @router.get("/bookings/{record_id}", dependencies=permission("bookings:read"))
     def get_booking(record_id: str, actor: dict[str, Any] = Depends(auth_dependency)) -> Any:
         del actor
@@ -531,7 +620,7 @@ def build_domain_router(
             assignment = _serialize_assignment(pool, assignment)
         return {
             **_serialize_booking(pool, booking), "payments": payments, "assignment": assignment,
-            "messages": [],
+            "messages": [], "paymentInstructions": _payment_instructions(settings, booking),
         }
 
     @router.patch("/bookings/{record_id}", dependencies=permission("bookings:write"))

@@ -53,6 +53,7 @@ class Settings:
     public_app_url: str
     at_webhook_rate_limit: int
     paystack_secret_key: str
+    paystack_webhook_secret: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -91,6 +92,7 @@ class Settings:
             public_app_url=os.getenv("PUBLIC_APP_URL", "http://localhost:3002").rstrip("/"),
             at_webhook_rate_limit=int(os.getenv("AT_WEBHOOK_RATE_LIMIT", "120")),
             paystack_secret_key=os.getenv("PAYSTACK_SECRET_KEY", "").strip(),
+            paystack_webhook_secret=os.getenv("PAYSTACK_WEBHOOK_SECRET", "").strip(),
         )
 
 

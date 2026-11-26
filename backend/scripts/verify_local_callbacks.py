@@ -30,7 +30,11 @@ async def main() -> None:
             "text": "",
         }
         first = await client.post(ussd_url, params={"token": settings.webhook_token}, data=data)
-        print(f"local_ussd_initial={first.status_code}; response_starts_con={first.text.startswith('CON ')}")
+        has_booking_menu = "2. Request booking" in first.text and "3. Pay a deposit" in first.text
+        print(
+            f"local_ussd_initial={first.status_code}; response_starts_con={first.text.startswith('CON ')}; "
+            f"has_booking_and_payment_menu={has_booking_menu}"
+        )
         data["text"] = "1"
         destinations = await client.post(ussd_url, params={"token": settings.webhook_token}, data=data)
         print(
@@ -57,7 +61,7 @@ async def main() -> None:
         assert health.status_code == 200
         assert body.get("database") == "postgresql" and body.get("mockData") is False
         assert first.status_code == destinations.status_code == detail.status_code == 200
-        assert first.text.startswith("CON ")
+        assert first.text.startswith("CON ") and has_booking_menu
         assert destinations.text.startswith("CON ") and "Maasai Mara" in destinations.text
         assert detail.text.startswith("END ") and "Great Migration" in detail.text
         assert missing.status_code == header_only.status_code == 401

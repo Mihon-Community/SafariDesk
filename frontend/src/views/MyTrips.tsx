@@ -62,9 +62,9 @@ export default function MyTrips() {
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium">{booking.packageName ?? booking.parkName ?? "Safari"}</p>
+                      <p className="text-sm font-medium">{booking.packageName ?? booking.destinationName ?? booking.parkName ?? "Safari"}</p>
                       <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" aria-hidden /> {booking.parkName}
+                        <MapPin className="h-3 w-3" aria-hidden /> {booking.pickupLocation ? `Pickup: ${booking.pickupLocation}` : booking.parkName ?? booking.destinationName}
                       </p>
                     </div>
                     <Badge>{booking.status}</Badge>
@@ -79,7 +79,7 @@ export default function MyTrips() {
                     </span>
                     <span className="flex items-center gap-1">
                       <ReceiptText className="h-3 w-3" aria-hidden />
-                      {formatMoney(booking.total)}
+                      {booking.quoteStatus === "REQUESTED" ? "Quote pending" : formatMoney(booking.total)}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">

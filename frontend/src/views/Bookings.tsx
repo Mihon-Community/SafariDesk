@@ -192,16 +192,16 @@ export default function Bookings() {
                         </span>
                       </Link>
                     </TableCell>
-                    <TableCell data-label="Package">{b.packageName ?? `#${b.packageId}`}</TableCell>
+                    <TableCell data-label="Package">{b.packageName ?? b.destinationName ?? `#${b.packageId ?? "pending"}`}</TableCell>
                     <TableCell data-label="Dates">
                       {formatDate(b.startDate)} – {formatDate(b.endDate)}
                     </TableCell>
                     <TableCell data-label="Pax" className="text-right">{b.pax}</TableCell>
                     <TableCell data-label="Total" className="text-right">
-                      <Money value={b.total} plain />
+                      {b.quoteStatus === "REQUESTED" ? <span className="text-muted-foreground">Quote pending</span> : <Money value={b.total} plain />}
                     </TableCell>
                     <TableCell data-label="Deposit due" className="text-right">
-                      <Money value={b.depositDue} plain />
+                      {b.quoteStatus === "REQUESTED" ? <span className="text-muted-foreground">-</span> : <Money value={b.depositDue} plain />}
                     </TableCell>
                     <TableCell data-label="Status">
                       <StatusBadge status={b.status} />

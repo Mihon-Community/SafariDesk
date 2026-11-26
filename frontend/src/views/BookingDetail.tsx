@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   ArrowRight,
@@ -11,18 +11,16 @@ import {
   Check,
   Loader2,
   MessageSquareText,
-  Send,
   Truck,
 } from "lucide-react";
 
 import { api, ApiError } from "@/lib/api";
 import {
   useMarkPaid,
-  usePayBooking,
   useResendAssignment,
   useUpdateBooking,
 } from "@/hooks/useBookings";
-import type { BookingStatus, BookingWithRelations, PaymentStatus } from "@/lib/types";
+import type { BookingStatus, BookingWithRelations, Package, PaymentStatus } from "@/lib/types";
 import { formatDate, formatDateTime, maskPhone } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -32,6 +30,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -71,17 +76,30 @@ export default function BookingDetail() {
   const { id } = useParams<{ id: string }>();
   const [markPaidOpen, setMarkPaidOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [quotePackageId, setQuotePackageId] = useState("");
+  const [depositPct, setDepositPct] = useState("30");
+  const [manualTotal, setManualTotal] = useState("");
+  const queryClient = useQueryClient();
 
   const detail = useQuery({
     queryKey: ["bookings", id],
     enabled: !!id,
     queryFn: () => api<BookingWithRelations>(`/api/bookings/${id}`),
   });
+  const packages = useQuery({
+    queryKey: ["rates", "packages"],
+    queryFn: () => api<Package[]>("/api/rates/packages"),
+    enabled: detail.data?.quoteStatus === "REQUESTED",
+  });
 
-  const pay = usePayBooking();
   const markPaid = useMarkPaid();
   const update = useUpdateBooking();
   const resend = useResendAssignment();
+  const quoteOptions = useMemo(
+    () => (packages.data ?? []).filter((item) => item.active &&
+      item.parkId === detail.data?.parkId && (!detail.data?.tripDays || item.days === detail.data.tripDays)),
+    [packages.data, detail.data?.parkId, detail.data?.tripDays],
+  );
 
   /** Resending the assignment SMS to a WAITING driver. */
   function resendSms() {
@@ -100,6 +118,33 @@ export default function BookingDetail() {
       toast.success(`Status updated to ${status.replace(/_/g, " ")}`);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Status change failed");
+    }
+  }
+
+  async function submitQuote(method: "rates" | "manual") {
+    const booking = detail.data;
+    if (!booking) return;
+    const selectedPackageId = quotePackageId || String(quoteOptions[0]?.id ?? "");
+    if (method === "rates" && !selectedPackageId) return;
+    const body = method === "rates"
+      ? { packageId: Number(selectedPackageId), depositPct: Number(depositPct) }
+      : { manualTotal: Number(manualTotal), depositPct: Number(depositPct) };
+    try {
+      const result = await api<BookingWithRelations & { quoteSmsAccepted?: boolean }>(
+        `/api/bookings/${booking.id}/quote`,
+        { method: "POST", body },
+      );
+      await Promise.all([
+        detail.refetch(),
+        queryClient.invalidateQueries({ queryKey: ["bookings"] }),
+      ]);
+      toast.success("Quote saved", {
+        description: result.quoteSmsAccepted
+          ? "The guest was sent the quote and USSD payment steps by SMS."
+          : "The quote is saved. SMS was not accepted, so share the USSD steps with the guest.",
+      });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not save the quote");
     }
   }
 
@@ -130,34 +175,12 @@ export default function BookingDetail() {
     <div className="space-y-4">
       <PageHeader
         title={`Booking #${b.id}`}
-        description={`${b.packageName ?? `Package #${b.packageId}`} · booked via ${b.source}`}
-        actions={
-          <>
-            {(b.status === "PENDING" || b.status === "DEPOSIT_PAID") && (
-              <Button
-                onClick={() =>
-                  pay.mutate(b.id, {
-                    onSuccess: () =>
-                      toast.success("M-Pesa prompt sent", {
-                        description: "Waiting for the guest to approve on their phone.",
-                      }),
-                    onError: (e) =>
-                      toast.error(e instanceof ApiError ? e.message : "Could not send the prompt"),
-                  })
-                }
-                disabled={pay.isPending}
-              >
-                {pay.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Pay deposit
-              </Button>
-            )}
-            {b.status === "PENDING" && (
-              <Button variant="outline" onClick={() => setMarkPaidOpen(true)}>
-                <Banknote className="h-4 w-4" /> Mark as paid
-              </Button>
-            )}
-          </>
-        }
+        description={`${b.packageName ?? b.destinationName ?? `Package #${b.packageId ?? "pending"}`} - booked via ${b.source}`}
+        actions={b.status === "PENDING" && b.quoteStatus === "QUOTED" ? (
+          <Button variant="outline" onClick={() => setMarkPaidOpen(true)}>
+            <Banknote className="h-4 w-4" /> Record verified deposit
+          </Button>
+        ) : undefined}
       />
 
       {/* Status stepper */}
@@ -238,13 +261,16 @@ export default function BookingDetail() {
           <CardContent className="space-y-2 p-4 pt-2 text-sm">
             <p className="font-medium">{b.guest?.name ?? `Guest #${b.guestId}`}</p>
             <p className="text-muted-foreground">{maskPhone(b.guest?.phone)}</p>
+            {b.guest?.email && <p className="text-muted-foreground">{b.guest.email}</p>}
             <div className="flex flex-wrap gap-2 pt-1">
               <Badge variant="outline">{b.guest?.residency?.replace(/_/g, " ") ?? "—"}</Badge>
               <Badge variant="outline">{b.pax} pax</Badge>
+              {b.tripDays && <Badge variant="outline">{b.tripDays} days</Badge>}
               <Badge variant="outline">
                 {formatDate(b.startDate)} – {formatDate(b.endDate)}
               </Badge>
             </div>
+            {b.pickupLocation && <p className="pt-1 text-muted-foreground">Pickup: {b.pickupLocation}</p>}
           </CardContent>
         </Card>
 
@@ -254,7 +280,53 @@ export default function BookingDetail() {
             <CardTitle className="text-sm">Quote</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-2 text-sm">
-            {b.quoteBreakdown ? (
+            {b.quoteStatus === "REQUESTED" ? (
+              <div className="space-y-3">
+                <p className="text-muted-foreground">
+                  This guest request has no price yet. Select the matching package to calculate the quote from configured rates.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="quote-deposit">Deposit percent (10-100)</Label>
+                  <Input id="quote-deposit" type="number" min="10" max="100" value={depositPct} onChange={(event) => setDepositPct(event.target.value)} />
+                </div>
+                {packages.isLoading && <p className="text-muted-foreground">Loading matching packages...</p>}
+                {packages.isError && (
+                  <p className="text-destructive">Could not load packages. You can still enter an agreed total manually.</p>
+                )}
+                {!packages.isLoading && !packages.isError && quoteOptions.length === 0 ? (
+                  <p className="text-muted-foreground">
+                    No active package matches {b.destinationName ?? "this destination"} and {b.tripDays ?? "the requested"} days. Add matching rates or enter an agreed total manually.
+                  </p>
+                ) : !packages.isLoading && !packages.isError && quoteOptions.length > 0 ? (
+                  <div className="space-y-3 rounded-md border p-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="quote-package">Calculate from configured rates</Label>
+                      <Select value={quotePackageId || String(quoteOptions[0].id)} onValueChange={setQuotePackageId}>
+                        <SelectTrigger id="quote-package"><SelectValue placeholder="Choose package" /></SelectTrigger>
+                        <SelectContent>
+                          {quoteOptions.map((item) => (
+                            <SelectItem key={item.id} value={String(item.id)}>{item.name} - {item.days} days</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={() => void submitQuote("rates")} disabled={!/^(?:[1-9]\d?|100)$/.test(depositPct)}>
+                      Save rate quote and send USSD steps
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="space-y-3 rounded-md border p-3">
+                  <p className="text-muted-foreground">Or enter a total already agreed with the guest.</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-quote-total">Agreed total (KES)</Label>
+                    <Input id="manual-quote-total" type="number" min="3" step="1" value={manualTotal} onChange={(event) => setManualTotal(event.target.value)} />
+                  </div>
+                  <Button onClick={() => void submitQuote("manual")} disabled={!/^\d+$/.test(manualTotal) || Number(manualTotal) < 3 || !/^(?:[1-9]\d?|100)$/.test(depositPct)}>
+                    Save agreed total and send USSD steps
+                  </Button>
+                </div>
+              </div>
+            ) : b.quoteBreakdown ? (
               <dl className="space-y-1.5">
                 <Line label="Park fees" value={b.quoteBreakdown.parkFees} />
                 {b.quoteBreakdown.conservancy > 0 && (
@@ -280,8 +352,24 @@ export default function BookingDetail() {
                   </dd>
                 </div>
               </dl>
+            ) : b.quoteStatus === "QUOTED" ? (
+              <dl className="space-y-1.5">
+                <div className="flex justify-between font-semibold">
+                  <dt>Agreed total</dt>
+                  <dd><Money value={b.total} /></dd>
+                </div>
+                <div className="flex justify-between text-primary">
+                  <dt>Deposit due</dt>
+                  <dd><Money value={b.depositDue} /></dd>
+                </div>
+              </dl>
             ) : (
               <p className="text-muted-foreground">No quote stored for this booking.</p>
+            )}
+            {b.paymentInstructions && (
+              <p className="mt-3 rounded-md bg-muted p-3 text-muted-foreground">
+                Pay by USSD: {b.paymentInstructions}
+              </p>
             )}
           </CardContent>
         </Card>

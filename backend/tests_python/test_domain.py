@@ -90,7 +90,7 @@ def make_client(pool: FakePool | None = None, *, sms_sender=None):
 
     app.include_router(build_domain_router(
         pool,
-        SimpleNamespace(at_allowed_phones=()),
+        SimpleNamespace(at_allowed_phones=(), at_ussd_service_code="*384*32966#"),
         lambda: {"id": "operator-1", "role": "admin"},
         permission_factory,
         sms_sender,
@@ -191,6 +191,67 @@ def test_rates_quote_and_booking_are_persisted_and_joined_from_postgres_rows():
 
     kinds = {item["record_type"] for item in pool.state["records"]}
     assert kinds == {"parks", "packages", "park_fees", "drivers", "vehicles", "guests", "bookings"}
+
+
+def test_operator_quote_saves_rate_based_amount_and_sends_guest_ussd_steps():
+    sent = []
+
+    def sms_sender(phone, message, kind):
+        sent.append((phone, message, kind))
+        return {"accepted": True}
+
+    client, pool, _ = make_client(sms_sender=sms_sender)
+    park_id, package_id = setup_rates(client)
+    booking = make_booking(client, package_id).json()
+    record = next(item for item in pool.state["records"] if item["record_type"] == "bookings")
+    record["payload"].update({
+        "packageId": None, "total": 0, "depositDue": 0, "quoteBreakdown": None,
+        "quoteStatus": "REQUESTED", "tripDays": 2, "destinationName": "Test Park",
+        "source": "sms", "parkId": park_id, "residency": "citizen",
+    })
+    guest = next(item for item in pool.state["records"] if item["record_type"] == "guests")
+    guest["payload"]["email"] = "guest@example.com"
+
+    response = client.post(f"/api/bookings/{booking['id']}/quote", json={"packageId": package_id})
+    assert response.status_code == 200, response.text
+    quoted = response.json()
+    assert quoted["quoteStatus"] == "QUOTED"
+    assert quoted["total"] == 8140 and quoted["depositDue"] == 2442, quoted
+    assert quoted["quoteSmsAccepted"] is True
+    assert quoted["paymentInstructions"].startswith("Dial *384*32966#")
+    assert sent[0][0] == "+254712345678" and sent[0][2] == "booking_quote"
+    assert "KES 8140" in sent[0][1] and "KES 2442" in sent[0][1]
+    assert "*384*32966#" in sent[0][1] and "choose 3" in sent[0][1]
+
+
+def test_operator_can_quote_an_agreed_total_when_no_rates_are_configured():
+    sent = []
+
+    def sms_sender(phone, message, kind):
+        sent.append((phone, message, kind))
+        return {"accepted": True}
+
+    client, pool, _ = make_client(sms_sender=sms_sender)
+    pool.state["records"].extend([
+        {"id": 1, "record_type": "guests", "payload": {
+            "name": "Guest", "phone": "+254712345678", "email": "guest@example.com", "residency": "citizen",
+        }, "created_at": datetime.now(timezone.utc)},
+        {"id": 2, "record_type": "bookings", "payload": {
+            "guestId": 1, "parkId": None, "destinationName": "Maasai Mara Reserve",
+            "startDate": "2027-02-01", "endDate": "2027-02-02", "tripDays": 2,
+            "pax": 3, "residency": "citizen", "total": 0, "depositDue": 0,
+            "quoteBreakdown": None, "quoteStatus": "REQUESTED", "status": "PENDING", "source": "sms",
+        }, "created_at": datetime.now(timezone.utc)},
+    ])
+    pool.state["next_id"] = 3
+
+    response = client.post("/api/bookings/2/quote", json={"manualTotal": 25000, "depositPct": 40})
+    assert response.status_code == 200, response.text
+    quoted = response.json()
+    assert quoted["total"] == 25000 and quoted["depositDue"] == 10000
+    assert quoted["quoteBreakdown"] is None and quoted["quoteSource"] == "manual"
+    assert quoted["quoteStatus"] == "QUOTED" and quoted["packageId"] is None
+    assert sent and "KES 25000" in sent[0][1] and "KES 10000" in sent[0][1]
 
 
 def test_payment_marking_and_reconciliation_are_derived_from_real_records():

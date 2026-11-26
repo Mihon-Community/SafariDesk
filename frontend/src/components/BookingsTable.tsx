@@ -40,7 +40,7 @@ export function BookingsTable({ data }: { data: Booking[] }) {
       }),
       helper.accessor("packageName", {
         header: "Package",
-        cell: ({ getValue, row }) => getValue() ?? `#${row.original.packageId}`,
+        cell: ({ getValue, row }) => getValue() ?? row.original.destinationName ?? `#${row.original.packageId ?? "pending"}`,
       }),
       helper.accessor((row) => `${row.startDate}|${row.endDate}`, {
         id: "dates",
@@ -55,11 +55,15 @@ export function BookingsTable({ data }: { data: Booking[] }) {
       helper.accessor("pax", { header: "Pax", cell: ({ getValue }) => getValue() }),
       helper.accessor("total", {
         header: "Total",
-        cell: ({ getValue }) => <Money value={getValue()} plain />,
+        cell: ({ getValue, row }) => row.original.quoteStatus === "REQUESTED"
+          ? <span className="text-muted-foreground">Quote pending</span>
+          : <Money value={getValue()} plain />,
       }),
       helper.accessor("depositDue", {
         header: "Deposit due",
-        cell: ({ getValue }) => <Money value={getValue()} plain />,
+        cell: ({ getValue, row }) => row.original.quoteStatus === "REQUESTED"
+          ? <span className="text-muted-foreground">-</span>
+          : <Money value={getValue()} plain />,
       }),
       helper.accessor("status", {
         header: "Status",

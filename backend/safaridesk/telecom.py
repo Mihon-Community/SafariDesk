@@ -13,7 +13,7 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, Mapping
 from urllib.parse import parse_qsl
 
@@ -21,6 +21,8 @@ import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from starlette.concurrency import run_in_threadpool
+
+from .paystack import create_mpesa_offline_charge, verify_webhook_signature
 
 logger = logging.getLogger("safaridesk.telecom")
 
@@ -30,6 +32,9 @@ _INBOUND_SMS_FIELDS = {"id", "messageId", "from", "to", "text", "linkId", "date"
 _REPORT_FIELDS = {"id", "messageId", "status", "phoneNumber", "networkCode", "failureReason", "failureCode", "retryCount"}
 _PROVIDER_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 _USSD_SESSION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+_EMAIL = re.compile(r"^[^\s@]{1,64}@[^\s@.]+(?:\.[^\s@.]+)+$")
+_SMS_BOOKING_TTL = timedelta(minutes=30)
+_EAT = timezone(timedelta(hours=3))
 
 # Public destination guide copy, not sample bookings, inventory, or rates. It
 # gives a new installation a useful USSD experience until an operator adds
@@ -339,12 +344,12 @@ def _row_json(value: Any) -> dict[str, Any]:
 
 def _destination_catalog(conn: Any) -> list[dict[str, str]]:
     cursor = conn.execute(
-        "SELECT payload FROM business_records WHERE record_type = %s ORDER BY id LIMIT 12",
+        "SELECT id, payload FROM business_records WHERE record_type = %s ORDER BY id LIMIT 12",
         ("parks",),
     )
     destinations: list[dict[str, str]] = []
     for row in cursor.fetchall():
-        payload = _row_json(_row_value(row, "payload", 0))
+        payload = _row_json(_row_value(row, "payload", 1))
         raw_name = str(payload.get("name") or "")
         name = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f]", " ", raw_name)).strip()
         if not name:
@@ -353,6 +358,7 @@ def _destination_catalog(conn: Any) -> list[dict[str, str]]:
         destinations.append({
             "name": known[0] if known else name,
             "highlight": known[1] if known else "Ask SafariDesk about this destination's current safari options.",
+            "parkId": str(_row_value(row, "id", 0) or ""),
         })
     return destinations or list(_DEFAULT_DESTINATIONS)
 
@@ -360,6 +366,251 @@ def _destination_catalog(conn: Any) -> list[dict[str, str]]:
 def _load_destination_catalog(pool: Any) -> list[dict[str, str]]:
     with pool.connection() as conn:
         return _destination_catalog(conn)
+
+
+def _business_records(pool: Any, record_type: str) -> list[dict[str, Any]]:
+    with pool.connection() as conn:
+        rows = conn.execute(
+            "SELECT id, payload, created_at FROM business_records WHERE record_type = %s ORDER BY id",
+            (record_type,),
+        ).fetchall()
+    records = []
+    for row in rows:
+        payload = _row_json(_row_value(row, "payload", 1))
+        record_id = _row_value(row, "id", 0)
+        if record_id is not None:
+            records.append({**payload, "id": int(record_id)})
+    return records
+
+
+def _get_business_record(pool: Any, record_type: str, record_id: int) -> dict[str, Any] | None:
+    with pool.connection() as conn:
+        row = _fetchone(conn.execute(
+            "SELECT id, payload, created_at FROM business_records WHERE record_type = %s AND id = %s",
+            (record_type, record_id),
+        ))
+    payload = _row_json(_row_value(row, "payload", 1))
+    found_id = _row_value(row, "id", 0)
+    return {**payload, "id": int(found_id)} if found_id is not None else None
+
+
+def _insert_business_record(pool: Any, record_type: str, payload: Mapping[str, Any]) -> int:
+    with pool.connection() as conn:
+        row = _fetchone(conn.execute(
+            "INSERT INTO business_records (record_type, payload) VALUES (%s, %s::jsonb) RETURNING id",
+            (record_type, json.dumps(dict(payload), separators=(",", ":"))),
+        ))
+    record_id = _row_value(row, "id", 0)
+    if record_id is None:
+        raise RuntimeError("PostgreSQL did not return a business record id")
+    return int(record_id)
+
+
+def _update_business_record(pool: Any, record_type: str, record_id: int, payload: Mapping[str, Any]) -> None:
+    with pool.connection() as conn:
+        row = _fetchone(conn.execute(
+            "UPDATE business_records SET payload = %s::jsonb, updated_at = now() WHERE record_type = %s AND id = %s RETURNING id",
+            (json.dumps(dict(payload), separators=(",", ":")), record_type, record_id),
+        ))
+    if row is None:
+        raise RuntimeError("PostgreSQL did not update the business record")
+
+
+def _stored_payload(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Strip the database identity before persisting the JSON payload again."""
+    return {key: value for key, value in record.items() if key != "id"}
+
+
+def _sms_session_get(pool: Any, phone_hash: str, now: datetime) -> dict[str, Any] | None:
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM sms_booking_sessions WHERE expires_at <= %s", (now,))
+        row = _fetchone(conn.execute(
+            "SELECT state, expires_at FROM sms_booking_sessions WHERE phone_hash = %s",
+            (phone_hash,),
+        ))
+    if row is None:
+        return None
+    state = _row_json(_row_value(row, "state", 0))
+    expires_at = _row_value(row, "expires_at", 1)
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if isinstance(expires_at, datetime) and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    return state if isinstance(expires_at, datetime) and expires_at > now else None
+
+
+def _sms_session_save(pool: Any, phone_hash: str, state: Mapping[str, Any], now: datetime) -> None:
+    with pool.connection() as conn:
+        conn.execute(
+            """INSERT INTO sms_booking_sessions (phone_hash, state, expires_at, updated_at)
+               VALUES (%s, %s::jsonb, %s, %s)
+               ON CONFLICT (phone_hash) DO UPDATE SET
+                 state = EXCLUDED.state, expires_at = EXCLUDED.expires_at,
+                 updated_at = EXCLUDED.updated_at""",
+            (phone_hash, json.dumps(dict(state), separators=(",", ":")), now + _SMS_BOOKING_TTL, now),
+        )
+
+
+def _sms_session_clear(pool: Any, phone_hash: str) -> None:
+    with pool.connection() as conn:
+        conn.execute("DELETE FROM sms_booking_sessions WHERE phone_hash = %s", (phone_hash,))
+
+
+def _valid_start_date(value: str) -> str | None:
+    try:
+        parsed = date.fromisoformat(value.strip())
+    except ValueError:
+        return None
+    today = datetime.now(timezone.utc).astimezone(_EAT).date()
+    return parsed.isoformat() if parsed >= today else None
+
+
+def _create_booking_request(
+    pool: Any,
+    *,
+    phone: str,
+    destination: Mapping[str, Any],
+    start_date: str,
+    pax: int,
+    trip_days: int,
+    pickup_location: str,
+    guest_name: str,
+    email: str,
+    residency: str,
+    source: str,
+) -> int:
+    guest = next((item for item in _business_records(pool, "guests") if item.get("phone") == phone), None)
+    guest_payload = {
+        **({key: value for key, value in guest.items() if key not in {"id", "createdAt"}} if guest else {}),
+        "name": guest_name,
+        "phone": phone,
+        "email": email,
+        "residency": residency,
+        "loyaltyPoints": int((guest or {}).get("loyaltyPoints") or 0),
+        "referralCode": (guest or {}).get("referralCode"),
+    }
+    guest_id = int(guest["id"]) if guest else _insert_business_record(pool, "guests", guest_payload)
+    if guest:
+        _update_business_record(pool, "guests", guest_id, guest_payload)
+
+    starts = date.fromisoformat(start_date)
+    ends = starts + timedelta(days=trip_days - 1)
+    try:
+        park_id = int(destination.get("parkId") or 0) or None
+    except (TypeError, ValueError):
+        park_id = None
+    now = datetime.now(timezone.utc).isoformat()
+    return _insert_business_record(pool, "bookings", {
+        "guestId": guest_id,
+        "packageId": None,
+        "parkId": park_id,
+        "destinationName": str(destination.get("name") or "")[:80],
+        "startDate": starts.isoformat(),
+        "endDate": ends.isoformat(),
+        "tripDays": trip_days,
+        "pax": pax,
+        "pickupLocation": pickup_location[:100],
+        "total": 0,
+        "depositDue": 0,
+        "quoteBreakdown": None,
+        "quoteStatus": "REQUESTED",
+        "quoteRequestedAt": now,
+        "status": "PENDING",
+        "source": source,
+        "createdBy": None,
+    })
+
+
+def _paystack_offline_message(
+    pool: Any,
+    settings: Any,
+    booking_id: int,
+    phone: str,
+    charger: Callable[..., Mapping[str, Any]] = create_mpesa_offline_charge,
+) -> str:
+    booking = _get_business_record(pool, "bookings", booking_id)
+    if not booking:
+        return "END Booking not found. Check the booking number and dial again."
+    amount = int(booking.get("depositDue") or 0)
+    if booking.get("quoteStatus") != "QUOTED" or amount < 3:
+        return f"END Booking #{booking_id} needs an operator quote before payment."
+    guest = _get_business_record(pool, "guests", int(booking.get("guestId") or 0))
+    if not guest or normalize_kenyan_phone(str(guest.get("phone") or "")) != phone:
+        return "END This booking is not linked to your phone number. Contact SafariDesk for help."
+    email = str((guest or {}).get("email") or "").strip()
+    if not email or not _EMAIL.fullmatch(email):
+        return f"END Booking #{booking_id} needs a guest email before payment. Ask the operator to update it."
+    secret_key = str(_setting(settings, "paystack_secret_key")).strip()
+    if not secret_key:
+        return "END M-Pesa payments are not configured yet. Contact SafariDesk."
+
+    payments = _business_records(pool, "payments")
+    for payment in payments:
+        if (
+            str(payment.get("bookingId")) == str(booking_id)
+            and payment.get("provider") == "paystack"
+            and payment.get("status") == "PENDING"
+        ):
+            account_number = str(payment.get("accountNumber") or "")
+            account_reference = str(payment.get("accountReference") or "")
+            if account_number and account_reference:
+                return (
+                    f"END Paybill {account_number}; account {account_reference}; KES {amount}. "
+                    "Pay in M-Pesa: Lipa na M-Pesa > Paybill."
+                )
+            return "END Payment request is still processing. Please try again shortly."
+
+    reference = f"SDUSSD-{booking_id}-{uuid.uuid4().hex[:16].upper()}"
+    payment_id = _insert_business_record(pool, "payments", {
+        "bookingId": booking_id,
+        "phone": str((guest or {}).get("phone") or ""),
+        "providerRef": reference,
+        "mpesaRef": None,
+        "amount": amount,
+        "currency": "KES",
+        "method": "M-PESA",
+        "provider": "paystack",
+        "status": "PENDING",
+        "channel": "ussd",
+        "accountNumber": None,
+        "accountReference": None,
+        "createdBy": None,
+    })
+    try:
+        outcome = charger(
+            secret_key,
+            email=email,
+            amount_kes=amount,
+            reference=reference,
+        )
+    except Exception as exc:
+        outcome = {"accepted": False, "reason": type(exc).__name__}
+
+    if not isinstance(outcome, Mapping) or not outcome.get("accepted"):
+        failed = _get_business_record(pool, "payments", payment_id) or {}
+        _update_business_record(pool, "payments", payment_id, {
+            **_stored_payload(failed),
+            "status": "FAILED",
+            "providerReason": str(outcome.get("reason") if isinstance(outcome, Mapping) else "provider_error")[:40],
+        })
+        return "END Could not start M-Pesa payment. Try again later or contact SafariDesk."
+
+    provider_reference = str(outcome.get("reference") or reference)
+    created = _get_business_record(pool, "payments", payment_id) or {}
+    _update_business_record(pool, "payments", payment_id, {
+        **_stored_payload(created),
+        "providerRef": provider_reference,
+        "accountNumber": str(outcome["accountNumber"]),
+        "accountReference": str(outcome["accountReference"]),
+        "status": "PENDING",
+    })
+    return (
+        f"END Paybill {outcome['accountNumber']}; account {outcome['accountReference']}; KES {amount}. "
+        "Pay in M-Pesa: Lipa na M-Pesa > Paybill."
+    )
 
 
 def _destination_menu(destinations: list[dict[str, str]], page: int) -> str:
@@ -375,16 +626,128 @@ def _destination_menu(destinations: list[dict[str, str]], page: int) -> str:
     return "\n".join(lines)
 
 
-def _menu_response(text: str, destinations: list[dict[str, str]]) -> str:
+def _ussd_booking_response(
+    text: str,
+    destinations: list[dict[str, str]],
+    pool: Any,
+    phone: str,
+) -> str:
+    segments = text.split("*")
+    if not segments or segments[0] != "2":
+        return "END Invalid booking selection. Dial again to restart."
+    page = 0
+    selection_position = 1
+    while selection_position < len(segments) and segments[selection_position] == "9":
+        page += 1
+        selection_position += 1
+    if selection_position >= len(segments):
+        menu = _destination_menu(destinations, page)
+        return menu.replace("CON Safari destinations", "CON Choose safari destination", 1)
+    selected = segments[selection_position]
+    if selected == "0" and selection_position == 1:
+        return "CON SafariDesk\n1. Safari destinations\n2. Request booking\n3. Pay a deposit\n4. Booking help\n0. Exit"
+    if not re.fullmatch(r"[1-3]", selected):
+        return "END Invalid destination. Dial again and choose a listed number."
+    destination_index = page * 3 + int(selected) - 1
+    if destination_index >= len(destinations):
+        return "END That destination is unavailable. Dial again and choose another."
+    destination = destinations[destination_index]
+    fields = segments[selection_position + 1:]
+    prompts = [
+        "Enter travel start date as YYYY-MM-DD.",
+        "How many guests? Enter 1 to 50.",
+        "How many trip days? Enter 1 to 30.",
+        "Enter pickup location (town, hotel or airport).",
+        "Enter lead guest full name.",
+        "Enter guest email for the quote and receipt.",
+        "Residency: 1 Citizen, 2 Resident, 3 Non-resident.",
+    ]
+    if not fields:
+        return f"CON {prompts[0]}"
+
+    start_date = _valid_start_date(fields[0])
+    if not start_date:
+        return "END Invalid date. Dial again and enter a future YYYY-MM-DD date."
+    if len(fields) == 1:
+        return f"CON {prompts[1]}"
+    if not fields[1].isdigit() or not 1 <= int(fields[1]) <= 50:
+        return "END Guest count must be 1 to 50. Dial again to restart."
+    if len(fields) == 2:
+        return f"CON {prompts[2]}"
+    if not fields[2].isdigit() or not 1 <= int(fields[2]) <= 30:
+        return "END Trip length must be 1 to 30 days. Dial again to restart."
+    if len(fields) == 3:
+        return f"CON {prompts[3]}"
+    pickup = re.sub(r"[\x00-\x1f\x7f]", " ", fields[3]).strip()
+    if not 2 <= len(pickup) <= 100:
+        return "END Pickup location must be 2 to 100 characters. Dial again to restart."
+    if len(fields) == 4:
+        return f"CON {prompts[4]}"
+    guest_name = re.sub(r"[\x00-\x1f\x7f]", " ", fields[4]).strip()
+    if not 2 <= len(guest_name) <= 80:
+        return "END Guest name must be 2 to 80 characters. Dial again to restart."
+    if len(fields) == 5:
+        return f"CON {prompts[5]}"
+    email = fields[5].strip().casefold()
+    if len(email) > 254 or not _EMAIL.fullmatch(email):
+        return "END Invalid email. Dial again and enter a valid email address."
+    if len(fields) == 6:
+        return f"CON {prompts[6]}"
+    residency = {"1": "citizen", "2": "resident", "3": "non_resident"}.get(fields[6])
+    if residency is None:
+        return "END Choose residency 1, 2 or 3. Dial again to restart."
+    if len(fields) == 7:
+        return (
+            f"CON {destination['name']}, {fields[1]} guests, {fields[2]} days, "
+            f"{start_date}, pickup {pickup[:28]}. Reply 1 to submit or 0 to cancel."
+        )
+    if len(fields) != 8 or fields[7] not in {"0", "1"}:
+        return "END Invalid confirmation. Dial again to restart."
+    if fields[7] == "0":
+        return "END Booking request cancelled. Thank you."
+
+    booking_id = _create_booking_request(
+        pool,
+        phone=phone,
+        destination=destination,
+        start_date=start_date,
+        pax=int(fields[1]),
+        trip_days=int(fields[2]),
+        pickup_location=pickup,
+        guest_name=guest_name,
+        email=email,
+        residency=residency,
+        source="ussd",
+    )
+    return f"END Booking request #{booking_id} saved. An operator will confirm price and availability. Dial again to pay after the quote."
+
+
+def _menu_response(
+    text: str,
+    destinations: list[dict[str, str]],
+    *,
+    pool: Any,
+    settings: Any,
+    phone: str,
+    paystack_charger: Callable[..., Mapping[str, Any]],
+) -> str:
     if text == "":
-        return "CON SafariDesk\n1. Safari destinations\n2. Booking help\n0. Exit"
+        return "CON SafariDesk\n1. Safari destinations\n2. Request booking\n3. Pay a deposit\n4. Booking help\n0. Exit"
     selections = text.split("*")
-    if len(selections) > 5 or any(not re.fullmatch(r"\d{1,2}", item) for item in selections):
-        return "END Invalid selection. Dial again to restart."
     if text == "0":
         return "END Thank you for using SafariDesk."
-    if text == "2":
+    if selections[0] == "2":
+        return _ussd_booking_response(text, destinations, pool, phone)
+    if selections[0] == "3":
+        if len(selections) == 1:
+            return "CON Enter your booking number to pay its quoted deposit."
+        if len(selections) != 2 or not selections[1].isdigit() or int(selections[1]) < 1:
+            return "END Invalid booking number. Dial again to restart."
+        return _paystack_offline_message(pool, settings, int(selections[1]), phone, paystack_charger)
+    if selections[0] == "4" and len(selections) == 1:
         return "END For booking help, text HELP or contact SafariDesk. Ask the operator to confirm dates, availability and current rates."
+    if len(selections) > 5 or any(not re.fullmatch(r"\d{1,2}", item) for item in selections):
+        return "END Invalid selection. Dial again to restart."
     if selections[0] != "1":
         return "END Invalid selection. Dial again to restart."
 
@@ -420,6 +783,9 @@ def _process_ussd(
     text: str,
     now: datetime,
     ttl_seconds: int,
+    settings: Any,
+    phone: str,
+    paystack_charger: Callable[..., Mapping[str, Any]],
 ) -> str:
     with pool.connection() as conn:
         destinations = _destination_catalog(conn)
@@ -427,32 +793,43 @@ def _process_ussd(
             "SELECT phone_hash, service_code, state, expires_at FROM ussd_sessions WHERE session_id = %s",
             (session_id,),
         ))
-        if row is not None:
-            old_phone_hash = _row_value(row, "phone_hash", 0)
-            old_service = _row_value(row, "service_code", 1)
-            state = _row_json(_row_value(row, "state", 2))
-            expires_at = _row_value(row, "expires_at", 3)
-            if isinstance(expires_at, str):
-                try:
-                    expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-                except ValueError:
-                    expires_at = None
-            if isinstance(expires_at, datetime) and expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            if expires_at and expires_at > now:
-                if old_phone_hash != phone_hash or old_service != service_code:
-                    return "END Invalid session. Dial again to restart."
-                if state.get("input_text") == text:
-                    response_text = str(state.get("response_text") or _menu_response(text, destinations))
-                else:
-                    response_text = _menu_response(text, destinations)
-            elif text:
-                response_text = "END Session expired. Dial again to restart."
-            else:
-                response_text = _menu_response(text, destinations)
-        else:
-            response_text = _menu_response(text, destinations)
+    # Payment handling opens its own database connections and calls Paystack.
+    # Release the session lookup connection first so callbacks cannot exhaust
+    # a small pool while waiting for the provider.
+    old_phone_hash = _row_value(row, "phone_hash", 0)
+    old_service = _row_value(row, "service_code", 1)
+    state = _row_json(_row_value(row, "state", 2))
+    expires_at = _row_value(row, "expires_at", 3)
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        except ValueError:
+            expires_at = None
+    if isinstance(expires_at, datetime) and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
 
+    if row is not None and expires_at and expires_at > now:
+        if old_phone_hash != phone_hash or old_service != service_code:
+            return "END Invalid session. Dial again to restart."
+        if state.get("input_text") == text:
+            response_text = str(state.get("response_text") or _menu_response(
+                text, destinations, pool=pool, settings=settings, phone=phone,
+                paystack_charger=paystack_charger,
+            ))
+        else:
+            response_text = _menu_response(
+                text, destinations, pool=pool, settings=settings, phone=phone,
+                paystack_charger=paystack_charger,
+            )
+    elif row is not None and text:
+        response_text = "END Session expired. Dial again to restart."
+    else:
+        response_text = _menu_response(
+            text, destinations, pool=pool, settings=settings, phone=phone,
+            paystack_charger=paystack_charger,
+        )
+
+    with pool.connection() as conn:
         state_json = json.dumps({"input_text": text, "response_text": response_text})
         expires_at = now + timedelta(seconds=ttl_seconds)
         conn.execute(
@@ -510,6 +887,111 @@ def _sms_destination_label(name: str) -> str:
         flags=re.IGNORECASE,
     )
     return label[:16].strip()
+
+
+def _sms_booking_prompt(step: str) -> str:
+    prompts = {
+        "destination": "SafariDesk booking: reply with a park name or number. Text PARKS for the list.",
+        "date": "Travel start date? Reply YYYY-MM-DD.",
+        "pax": "How many guests? Reply with 1 to 50.",
+        "days": "How many trip days? Reply with 1 to 30.",
+        "pickup": "Where should the safari pickup be? Reply with a town, hotel or airport.",
+        "name": "What is the lead guest's full name?",
+        "email": "What email can receive the quote and receipt?",
+        "residency": "Lead guest residency: reply 1 Kenyan citizen, 2 Kenyan resident, or 3 non-resident.",
+        "confirm": "Reply YES to submit this booking request or NO to discard it.",
+    }
+    return prompts[step]
+
+
+def _sms_booking_step(
+    pool: Any,
+    phone: str,
+    session: Mapping[str, Any],
+    text: str,
+    now: datetime,
+) -> tuple[str, dict[str, Any] | None, int | None]:
+    step = str(session.get("step") or "destination")
+    data = dict(session.get("data") or {})
+    value = re.sub(r"[\x00-\x1f\x7f]", " ", text).strip()
+
+    if step == "destination":
+        destination = _sms_destination_detail(value, data.get("catalog") or []) if data.get("catalog") else None
+        if destination is None:
+            return "Reply with a park name or number from PARKS.", dict(session), None
+        data["destination"] = {key: destination.get(key) for key in ("name", "parkId", "highlight")}
+        next_step = "date"
+    elif step == "date":
+        parsed = _valid_start_date(value)
+        if not parsed:
+            return "Use a future date in YYYY-MM-DD format.", dict(session), None
+        data["startDate"] = parsed
+        next_step = "pax"
+    elif step == "pax":
+        if not value.isdigit() or not 1 <= int(value) <= 50:
+            return "Guest count must be a number from 1 to 50.", dict(session), None
+        data["pax"] = int(value)
+        next_step = "days"
+    elif step == "days":
+        if not value.isdigit() or not 1 <= int(value) <= 30:
+            return "Trip length must be a number from 1 to 30 days.", dict(session), None
+        data["tripDays"] = int(value)
+        next_step = "pickup"
+    elif step == "pickup":
+        if not 2 <= len(value) <= 100:
+            return "Enter a pickup location between 2 and 100 characters.", dict(session), None
+        data["pickupLocation"] = value
+        next_step = "name"
+    elif step == "name":
+        if not 2 <= len(value) <= 80:
+            return "Enter the lead guest's name (2 to 80 characters).", dict(session), None
+        data["guestName"] = value
+        next_step = "email"
+    elif step == "email":
+        email = value.casefold()
+        if len(email) > 254 or not _EMAIL.fullmatch(email):
+            return "Enter a valid email address for the quote and receipt.", dict(session), None
+        data["email"] = email
+        next_step = "residency"
+    elif step == "residency":
+        residency = {
+            "1": "citizen", "CITIZEN": "citizen", "KENYAN CITIZEN": "citizen",
+            "2": "resident", "RESIDENT": "resident", "KENYAN RESIDENT": "resident",
+            "3": "non_resident", "NON-RESIDENT": "non_resident", "NON RESIDENT": "non_resident",
+        }.get(value.upper())
+        if residency is None:
+            return _sms_booking_prompt("residency"), dict(session), None
+        data["residency"] = residency
+        next_step = "confirm"
+    elif step == "confirm":
+        if value.upper() in {"NO", "N"}:
+            return "Booking request discarded. Text BOOK to start again.", None, None
+        if value.upper() not in {"YES", "Y"}:
+            return _sms_booking_prompt("confirm"), dict(session), None
+        booking_id = _create_booking_request(
+            pool,
+            phone=phone,
+            destination=data["destination"],
+            start_date=data["startDate"],
+            pax=int(data["pax"]),
+            trip_days=int(data["tripDays"]),
+            pickup_location=str(data["pickupLocation"]),
+            guest_name=str(data["guestName"]),
+            email=str(data["email"]),
+            residency=str(data["residency"]),
+            source="sms",
+        )
+        return (
+            f"Booking request #{booking_id} saved for {data['destination']['name']}. "
+            "An operator must confirm rates and availability. After the quote, dial SafariDesk USSD and choose Pay deposit.",
+            None,
+            booking_id,
+        )
+    else:
+        return "Booking request expired. Text BOOK to start again.", None, None
+
+    updated = {"step": next_step, "data": data}
+    return _sms_booking_prompt(next_step), updated, None
 
 
 def _classify_sms(
@@ -608,6 +1090,55 @@ def _report_status(value: str) -> str | None:
     return statuses.get(value.strip().lower())
 
 
+def _persist_paystack_success(
+    pool: Any,
+    reference: str,
+    amount_subunits: int,
+    currency: str,
+    now: datetime,
+) -> str:
+    with pool.connection() as conn, conn.transaction():
+        payment_row = _fetchone(conn.execute(
+            """SELECT id, payload, created_at FROM business_records
+               WHERE record_type = %s AND payload->>'providerRef' = %s FOR UPDATE""",
+            ("payments", reference),
+        ))
+        payment_id = _row_value(payment_row, "id", 0)
+        payment = _row_json(_row_value(payment_row, "payload", 1))
+        if payment_id is None or payment.get("provider") != "paystack":
+            return "unmatched"
+        if payment.get("status") == "SUCCESS":
+            return "duplicate"
+        if payment.get("status") != "PENDING":
+            return "not_pending"
+        expected_amount = int(payment.get("amount") or 0) * 100
+        if amount_subunits != expected_amount or currency != "KES":
+            return "amount_mismatch"
+
+        booking_id = int(payment.get("bookingId") or 0)
+        booking_row = _fetchone(conn.execute(
+            """SELECT id, payload, created_at FROM business_records
+               WHERE record_type = %s AND id = %s FOR UPDATE""",
+            ("bookings", booking_id),
+        ))
+        found_booking_id = _row_value(booking_row, "id", 0)
+        booking = _row_json(_row_value(booking_row, "payload", 1))
+        if found_booking_id is None or booking.get("status") == "CANCELLED":
+            return "booking_missing"
+
+        payment.update({"status": "SUCCESS", "paidAt": now.isoformat(), "channel": "mpesa_offline"})
+        booking.update({"status": "DEPOSIT_PAID", "depositPaidAt": now.isoformat()})
+        conn.execute(
+            "UPDATE business_records SET payload = %s::jsonb, updated_at = %s WHERE record_type = %s AND id = %s",
+            (json.dumps(payment, separators=(",", ":")), now, "payments", int(payment_id)),
+        )
+        conn.execute(
+            "UPDATE business_records SET payload = %s::jsonb, updated_at = %s WHERE record_type = %s AND id = %s",
+            (json.dumps(booking, separators=(",", ":")), now, "bookings", booking_id),
+        )
+        return "processed"
+
+
 def build_telecom_router(
     pool: Any,
     settings: Any,
@@ -615,6 +1146,7 @@ def build_telecom_router(
     sms_sender: Callable[..., Awaitable[dict[str, Any]]] = send_sms,
     now: Callable[[], datetime] | None = None,
     session_ttl_seconds: int = 300,
+    paystack_charger: Callable[..., Mapping[str, Any]] = create_mpesa_offline_charge,
 ) -> APIRouter:
     """Build the provider callback router using the supplied app dependencies."""
     router = APIRouter()
@@ -628,7 +1160,7 @@ def build_telecom_router(
             message = "USSD is not configured yet." if code == 503 else "Invalid callback authentication."
             return _ussd_end(message, code)
         try:
-            data = await _read_form(request, _USSD_FIELDS, {"sessionId": 128, "serviceCode": 32, "phoneNumber": 16, "text": 160, "networkCode": 32})
+            data = await _read_form(request, _USSD_FIELDS, {"sessionId": 128, "serviceCode": 32, "phoneNumber": 16, "text": 480, "networkCode": 32})
             session_id = _required(data, "sessionId")
             service_code = _required(data, "serviceCode")
             phone = normalize_kenyan_phone(_required(data, "phoneNumber"))
@@ -649,6 +1181,9 @@ def build_telecom_router(
                 text,
                 clock(),
                 max(1, session_ttl_seconds),
+                settings,
+                phone,
+                paystack_charger,
             )
             return PlainTextResponse(response_text, status_code=200)
         except _FormError as exc:
@@ -679,19 +1214,90 @@ def build_telecom_router(
             if not _allowed_phone(phone, settings):
                 return JSONResponse({"error": "Sender not allowed.", "code": "PHONE_NOT_ALLOWED"}, status_code=403)
             destinations = await run_in_threadpool(_load_destination_catalog, pool)
-            command, reply, preference = _classify_sms(message, public_app_url, destinations)
+            phone_hash = _phone_hash(phone, settings)
+            command_text = re.sub(r"\s+", " ", message.strip().upper())
+            existing_session = await run_in_threadpool(_sms_session_get, pool, phone_hash, clock())
+            pay_match = re.fullmatch(r"PAY(?:\s+#?(\d{1,18}))?", command_text)
+            is_book_start = command_text == "BOOK"
+            planned_booking_state: dict[str, Any] | None = None
+            booking_id: int | None = None
+
+            if command_text in {"STOP", "UNSUBSCRIBE", "CANCEL", "QUIT", "END"}:
+                command, reply, preference = _classify_sms(message, public_app_url, destinations)
+            elif command_text == "START":
+                command, reply, preference = _classify_sms(message, public_app_url, destinations)
+            elif is_book_start:
+                command, preference = "BOOKING", None
+                planned_booking_state = {"step": "destination", "data": {"catalog": destinations}}
+                reply = _sms_booking_prompt("destination")
+            elif pay_match:
+                command, preference = "PAY_GUIDE", None
+                service_code = str(_setting(settings, "at_ussd_service_code")).strip()
+                requested_id = int(pay_match.group(1)) if pay_match.group(1) else None
+                if not service_code:
+                    reply = "SafariDesk USSD payments are unavailable. Contact the operator."
+                elif requested_id is None:
+                    reply = f"To pay: dial {service_code}, choose 3 Pay a deposit, then enter your booking number."
+                else:
+                    booking = await run_in_threadpool(_get_business_record, pool, "bookings", requested_id)
+                    guest = await run_in_threadpool(
+                        _get_business_record,
+                        pool,
+                        "guests",
+                        int((booking or {}).get("guestId") or 0),
+                    ) if booking else None
+                    if not booking or not guest or normalize_kenyan_phone(str(guest.get("phone") or "")) != phone:
+                        reply = "No booking was found for this number. Check the booking number or contact SafariDesk."
+                    elif booking.get("quoteStatus") != "QUOTED":
+                        reply = f"Booking #{requested_id} is awaiting an operator quote. After it is quoted, dial {service_code}, choose 3, and enter {requested_id}."
+                    else:
+                        reply = f"To pay booking #{requested_id}, dial {service_code}, choose 3 Pay a deposit, then enter {requested_id}."
+            elif command_text in {"HELP", "PARKS", "PARK", "OPTIONS", "DESTINATIONS", "SAFARI"} or re.fullmatch(r"(?:PARKS|PARK)\s+\d{1,2}", command_text):
+                command, reply, preference = _classify_sms(message, public_app_url, destinations)
+            elif existing_session is not None:
+                command, preference = f"BOOKING_{str(existing_session.get('step') or 'STEP').upper()}", None
+                reply = ""
+            else:
+                command, reply, preference = _classify_sms(message, public_app_url, destinations)
+
             inserted, opted_out = await run_in_threadpool(
                 _persist_inbound,
                 pool,
                 provider_id,
                 preference,
-                _phone_hash(phone, settings),
+                phone_hash,
                 command,
             )
             should_reply = preference is not None or command == "HELP" or not opted_out
-            if inserted and should_reply:
+            if not inserted:
+                return PlainTextResponse("OK", status_code=200)
+
+            if not opted_out or preference is not None or command == "HELP":
+                if command_text in {"STOP", "UNSUBSCRIBE", "CANCEL", "QUIT", "END", "START"}:
+                    await run_in_threadpool(_sms_session_clear, pool, phone_hash)
+                elif is_book_start:
+                    await run_in_threadpool(_sms_session_save, pool, phone_hash, planned_booking_state or {}, clock())
+                elif existing_session is not None and command.startswith("BOOKING_"):
+                    reply, next_session, booking_id = await run_in_threadpool(
+                        _sms_booking_step, pool, phone, existing_session, message, clock()
+                    )
+                    if next_session is None:
+                        await run_in_threadpool(_sms_session_clear, pool, phone_hash)
+                    else:
+                        await run_in_threadpool(_sms_session_save, pool, phone_hash, next_session, clock())
+
+                    if booking_id is not None:
+                        service_code = str(_setting(settings, "at_ussd_service_code")).strip()
+                        if service_code:
+                            reply = (
+                                f"Booking request #{booking_id} saved. An operator must confirm rates and availability. "
+                                f"After the quote, dial {service_code}, choose 3, and enter {booking_id} to pay."
+                            )
+
+            if inserted and should_reply and reply:
                 try:
-                    outcome = await sms_sender(pool, settings, phone, reply, event_kind=command)
+                    outgoing_kind = "BOOKING" if command.startswith("BOOKING") else command
+                    outcome = await sms_sender(pool, settings, phone, reply, event_kind=outgoing_kind)
                     if not isinstance(outcome, Mapping) or not outcome.get("accepted"):
                         status_code = outcome.get("providerErrorCode") if isinstance(outcome, Mapping) else None
                         reason = outcome.get("reason") if isinstance(outcome, Mapping) else None
@@ -740,5 +1346,62 @@ def build_telecom_router(
         except Exception:
             logger.exception("Africa's Talking delivery report could not be persisted")
             return JSONResponse({"error": "Callback could not be processed.", "code": "CALLBACK_ERROR"}, status_code=500)
+
+    @router.post("/api/webhooks/paystack")
+    async def paystack_webhook(request: Request) -> Response:
+        secret_key = str(_setting(settings, "paystack_secret_key")).strip()
+        webhook_secret = str(_setting(settings, "paystack_webhook_secret")).strip()
+        if not secret_key:
+            return JSONResponse({"error": "Paystack is not configured."}, status_code=503)
+        try:
+            raw_body = await request.body()
+            if len(raw_body) > 65_536:
+                return JSONResponse({"error": "Webhook body too large."}, status_code=413)
+            if not verify_webhook_signature(
+                raw_body,
+                request.headers,
+                secret_key=secret_key,
+                webhook_secret=webhook_secret,
+                now=int(clock().timestamp()),
+            ):
+                return JSONResponse({"error": "Invalid webhook signature."}, status_code=401)
+            try:
+                payload = json.loads(raw_body)
+            except (ValueError, json.JSONDecodeError):
+                return JSONResponse({"error": "Invalid webhook payload."}, status_code=400)
+            if not isinstance(payload, dict):
+                return JSONResponse({"error": "Invalid webhook payload."}, status_code=400)
+            if payload.get("event") != "charge.success":
+                return JSONResponse({"received": True}, status_code=200)
+            data = payload.get("data")
+            if not isinstance(data, dict):
+                return JSONResponse({"error": "Invalid charge event."}, status_code=400)
+            reference = data.get("reference")
+            status = str(data.get("status") or "").lower()
+            currency = str(data.get("currency") or "").upper()
+            amount = data.get("amount")
+            if (
+                not isinstance(reference, str)
+                or not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", reference)
+                or status != "success"
+                or isinstance(amount, bool)
+                or not isinstance(amount, int)
+                or amount < 1
+            ):
+                return JSONResponse({"error": "Invalid charge event."}, status_code=400)
+            result = await run_in_threadpool(
+                _persist_paystack_success,
+                pool,
+                reference,
+                amount,
+                currency,
+                clock(),
+            )
+            if result == "amount_mismatch":
+                logger.warning("Paystack charge success did not match the expected booking amount")
+            return JSONResponse({"received": True}, status_code=200)
+        except Exception as exc:
+            logger.error("Paystack webhook could not be processed (%s)", type(exc).__name__)
+            return JSONResponse({"error": "Webhook could not be processed."}, status_code=500)
 
     return router
