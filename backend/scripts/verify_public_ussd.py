@@ -72,13 +72,35 @@ async def main() -> None:
             print(f"public_ussd_initial={initial.status_code}; response_is_con={initial_is_con}")
 
             data["text"] = "1"
-            reply = await client.post(
+            destinations = await client.post(
                 callback_url,
                 params={"token": settings.webhook_token},
                 data=data,
             )
-            reply_is_end = reply.status_code == 200 and reply.text.startswith("END ")
-            print(f"public_ussd_reply={reply.status_code}; response_is_end={reply_is_end}")
+            first_option = next(
+                (line.partition(".")[2].strip() for line in destinations.text.splitlines() if re.match(r"^1\.\s+", line)),
+                "",
+            )
+            destinations_ok = (
+                destinations.status_code == 200
+                and destinations.text.startswith("CON ")
+                and bool(first_option)
+            )
+            print(f"public_ussd_destinations={destinations.status_code}; contains_catalog={destinations_ok}")
+
+            data["text"] = "1*1"
+            detail = await client.post(
+                callback_url,
+                params={"token": settings.webhook_token},
+                data=data,
+            )
+            detail_is_end = (
+                detail.status_code == 200
+                and detail.text.startswith("END ")
+                and bool(first_option)
+                and first_option.split()[0] in detail.text
+            )
+            print(f"public_ussd_destination_detail={detail.status_code}; response_is_end={detail_is_end}")
 
             delivery_report = await client.post(
                 f"{settings.public_base_url}/api/webhooks/africastalking/sms-status",
@@ -90,7 +112,7 @@ async def main() -> None:
         print(f"public_ussd_request_failed={type(exc).__name__}")
         raise SystemExit(1) from None
 
-    if not initial_is_con or not reply_is_end or delivery_report.status_code != 200:
+    if not initial_is_con or not destinations_ok or not detail_is_end or delivery_report.status_code != 200:
         raise SystemExit(1)
 
 

@@ -31,6 +31,25 @@ _REPORT_FIELDS = {"id", "messageId", "status", "phoneNumber", "networkCode", "fa
 _PROVIDER_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 _USSD_SESSION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 
+# Public destination guide copy, not sample bookings, inventory, or rates. It
+# gives a new installation a useful USSD experience until an operator adds
+# their own parks under Rates.
+_DESTINATION_HIGHLIGHTS = {
+    "maasai mara": ("Maasai Mara Reserve", "Great Migration and Big Five wildlife viewing."),
+    "maasai mara national reserve": ("Maasai Mara Reserve", "Great Migration and Big Five wildlife viewing."),
+    "amboseli": ("Amboseli National Park", "Elephant herds and views of Mount Kilimanjaro."),
+    "amboseli national park": ("Amboseli National Park", "Elephant herds and views of Mount Kilimanjaro."),
+    "tsavo east": ("Tsavo East National Park", "Red elephants, Galana River and Yatta Plateau."),
+    "tsavo east national park": ("Tsavo East National Park", "Red elephants, Galana River and Yatta Plateau."),
+    "nairobi national park": ("Nairobi National Park", "Wildlife drives with Nairobi's skyline nearby."),
+}
+_DEFAULT_DESTINATIONS = [
+    {"name": "Maasai Mara Reserve", "highlight": _DESTINATION_HIGHLIGHTS["maasai mara"][1]},
+    {"name": "Amboseli", "highlight": _DESTINATION_HIGHLIGHTS["amboseli"][1]},
+    {"name": "Tsavo East", "highlight": _DESTINATION_HIGHLIGHTS["tsavo east"][1]},
+    {"name": "Nairobi National Park", "highlight": _DESTINATION_HIGHLIGHTS["nairobi national park"][1]},
+]
+
 
 def _setting(settings: Any, key: str, default: Any = "") -> Any:
     if isinstance(settings, Mapping):
@@ -306,24 +325,6 @@ def _ussd_end(message: str, status_code: int = 200) -> PlainTextResponse:
     return PlainTextResponse(f"END {message}", status_code=status_code)
 
 
-def _menu_response(text: str, public_app_url: str) -> str:
-    url = public_app_url.rstrip("/")
-    if text == "":
-        return "CON SafariDesk\n1. Browse safari options\n2. Booking help\n0. Exit"
-    selections = text.split("*")
-    if len(selections) > 4 or any(not re.fullmatch(r"\d{1,2}", item) for item in selections):
-        return "END Invalid selection. Dial again to restart."
-    if len(set(selections)) != len(selections):
-        return "END That selection was repeated. Dial again to restart."
-    if text == "0":
-        return "END Thank you for using SafariDesk."
-    if text == "1":
-        return f"END Browse safari options at {url}/parks." if url else "END Contact your safari operator for current trip options."
-    if text == "2":
-        return "END For booking help, contact your safari operator. Text HELP for SMS assistance."
-    return "END Invalid selection. Dial again to restart."
-
-
 def _row_json(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
@@ -336,6 +337,76 @@ def _row_json(value: Any) -> dict[str, Any]:
     return {}
 
 
+def _destination_catalog(conn: Any) -> list[dict[str, str]]:
+    cursor = conn.execute(
+        "SELECT payload FROM business_records WHERE record_type = %s ORDER BY id LIMIT 12",
+        ("parks",),
+    )
+    destinations: list[dict[str, str]] = []
+    for row in cursor.fetchall():
+        payload = _row_json(_row_value(row, "payload", 0))
+        raw_name = str(payload.get("name") or "")
+        name = re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f]", " ", raw_name)).strip()
+        if not name:
+            continue
+        known = _DESTINATION_HIGHLIGHTS.get(name.casefold())
+        destinations.append({
+            "name": known[0] if known else name,
+            "highlight": known[1] if known else "Ask SafariDesk about this destination's current safari options.",
+        })
+    return destinations or list(_DEFAULT_DESTINATIONS)
+
+
+def _destination_menu(destinations: list[dict[str, str]], page: int) -> str:
+    start = page * 3
+    items = destinations[start:start + 3]
+    if not items and page > 0:
+        return "END No more destinations. Dial again to restart."
+    lines = ["CON Safari destinations"]
+    lines.extend(f"{index}. {item['name'][:24]}" for index, item in enumerate(items, 1))
+    if start + len(items) < len(destinations):
+        lines.append("9. More destinations")
+    lines.append("0. Back")
+    return "\n".join(lines)
+
+
+def _menu_response(text: str, destinations: list[dict[str, str]]) -> str:
+    if text == "":
+        return "CON SafariDesk\n1. Safari destinations\n2. Booking help\n0. Exit"
+    selections = text.split("*")
+    if len(selections) > 5 or any(not re.fullmatch(r"\d{1,2}", item) for item in selections):
+        return "END Invalid selection. Dial again to restart."
+    if text == "0":
+        return "END Thank you for using SafariDesk."
+    if text == "2":
+        return "END For booking help, text HELP or contact SafariDesk. Ask the operator to confirm dates, availability and current rates."
+    if selections[0] != "1":
+        return "END Invalid selection. Dial again to restart."
+
+    tail = selections[1:]
+    if not tail:
+        return _destination_menu(destinations, page=0)
+    if tail == ["0"]:
+        return "CON SafariDesk\n1. Safari destinations\n2. Booking help\n0. Exit"
+
+    page = 0
+    while tail and tail[0] == "9":
+        page += 1
+        tail = tail[1:]
+    if not tail:
+        return _destination_menu(destinations, page)
+    if tail == ["0"]:
+        return "CON SafariDesk\n1. Safari destinations\n2. Booking help\n0. Exit" if page == 0 else _destination_menu(destinations, page - 1)
+    if len(tail) != 1:
+        return "END Invalid selection. Dial again to restart."
+    index = page * 3 + int(tail[0]) - 1
+    if index < page * 3 or index >= len(destinations) or index >= (page + 1) * 3:
+        return "END That destination is not available. Dial again to restart."
+    destination = destinations[index]
+    name = destination["name"][:32]
+    return f"END {name}: {destination['highlight']} Ask SafariDesk about dates, availability and rates."
+
+
 def _process_ussd(
     pool: Any,
     session_id: str,
@@ -344,9 +415,9 @@ def _process_ussd(
     text: str,
     now: datetime,
     ttl_seconds: int,
-    public_app_url: str,
 ) -> str:
     with pool.connection() as conn:
+        destinations = _destination_catalog(conn)
         row = _fetchone(conn.execute(
             "SELECT phone_hash, service_code, state, expires_at FROM ussd_sessions WHERE session_id = %s",
             (session_id,),
@@ -367,15 +438,15 @@ def _process_ussd(
                 if old_phone_hash != phone_hash or old_service != service_code:
                     return "END Invalid session. Dial again to restart."
                 if state.get("input_text") == text:
-                    response_text = str(state.get("response_text") or _menu_response(text, public_app_url))
+                    response_text = str(state.get("response_text") or _menu_response(text, destinations))
                 else:
-                    response_text = _menu_response(text, public_app_url)
+                    response_text = _menu_response(text, destinations)
             elif text:
                 response_text = "END Session expired. Dial again to restart."
             else:
-                response_text = _menu_response(text, public_app_url)
+                response_text = _menu_response(text, destinations)
         else:
-            response_text = _menu_response(text, public_app_url)
+            response_text = _menu_response(text, destinations)
 
         state_json = json.dumps({"input_text": text, "response_text": response_text})
         expires_at = now + timedelta(seconds=ttl_seconds)
@@ -504,7 +575,6 @@ def build_telecom_router(
                 text,
                 clock(),
                 max(1, session_ttl_seconds),
-                public_app_url,
             )
             return PlainTextResponse(response_text, status_code=200)
         except _FormError as exc:

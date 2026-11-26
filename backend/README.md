@@ -2,8 +2,10 @@
 
 The API runs on FastAPI and PostgreSQL. It provides cookie-based authentication,
 role and permission checks, SafariDesk business resources, Socket.IO, and the
-Africa's Talking SMS and USSD callbacks. The backend has no seeded/demo records
-or in-memory fallback: PostgreSQL is required at startup.
+Africa's Talking SMS and USSD callbacks. The backend has no seeded demo
+transactions or in-memory fallback: PostgreSQL is required at startup. A
+one-time migration adds four real destination names for the first-run Rates and
+USSD presentation.
 
 For the full Windows setup, callback URLs, test results, and recovery steps, see
 [`docs/BACKEND_GUIDE.md`](../docs/BACKEND_GUIDE.md).
@@ -25,8 +27,9 @@ py -3.14 -m venv .venv
 
 `prepare-postgres.ps1` starts the local PostgreSQL container and creates the
 application and read-only MCP roles. It fills missing local database passwords
-in the ignored `backend/.env`. Starting the API applies SQL migrations and
-creates only the configured administrator. Stop it with Ctrl+C.
+in the ignored `backend/.env`. Starting the API applies SQL migrations, creates
+the configured administrator, and installs the public destination catalogue.
+It does not create demo customers, bookings, or prices. Stop it with Ctrl+C.
 
 ## Checks
 

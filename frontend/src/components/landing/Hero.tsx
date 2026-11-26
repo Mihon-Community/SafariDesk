@@ -1,11 +1,13 @@
 "use client";
 
 import { useRef } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { HERO_CREDIT, STATS } from "@/lib/landing-data";
 
 /** 8×8 blurred stand-in so the hero photo never pops in unstyled. */
 const BLUR_PLACEHOLDER =
@@ -26,78 +28,11 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
-/** Layered savannah silhouettes + sun/moon disc + gliding birds (SVG only). */
-function SavannahGraphics() {
-  return (
-    <>
-      {/* sun / moon disc with soft glow */}
-      <div
-        aria-hidden
-        className="absolute right-[12%] top-[16%] size-28 rounded-full sm:size-40"
-        style={{
-          background:
-            "radial-gradient(circle at 50% 50%, var(--hero-from) 0%, color-mix(in oklab, var(--hero-from) 70%, white) 45%, transparent 72%)",
-          filter: "blur(2px)",
-          opacity: 0.9,
-        }}
-      />
-      {/* birds */}
-      <svg
-        aria-hidden
-        viewBox="0 0 200 60"
-        className="bird-glide absolute left-0 top-[22%] h-10 w-40 text-brand-foreground/70"
-      >
-        <path d="M4 30 q8 -10 16 0 q8 -10 16 0" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M60 44 q6 -8 12 0 q6 -8 12 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-      <svg
-        aria-hidden
-        viewBox="0 0 200 60"
-        className="bird-glide bird-glide-slow absolute left-0 top-[30%] h-8 w-32 text-brand-foreground/50"
-      >
-        <path d="M4 30 q8 -10 16 0 q8 -10 16 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-
-      {/* hills + acacia silhouettes follow the theme via currentColor */}
-      <svg
-        aria-hidden
-        viewBox="0 0 1440 320"
-        preserveAspectRatio="none"
-        className="absolute inset-x-0 bottom-0 h-[38vh] w-full text-brand"
-      >
-        <path
-          d="M0 224 L180 160 L360 208 L560 128 L760 192 L980 96 L1200 176 L1440 128 L1440 320 L0 320 Z"
-          fill="currentColor"
-          opacity="0.55"
-        />
-        <path
-          d="M0 264 L220 200 L430 252 L640 180 L860 240 L1090 168 L1300 228 L1440 192 L1440 320 L0 320 Z"
-          fill="currentColor"
-          opacity="0.8"
-        />
-        <path
-          d="M0 300 L260 268 L520 296 L780 252 L1040 292 L1260 262 L1440 288 L1440 320 L0 320 Z"
-          fill="currentColor"
-        />
-        {/* acacia silhouette */}
-        <g transform="translate(1120 118)" fill="currentColor">
-          <path d="M0 60 C 4 40, 2 28, -6 14 L 6 14 C 2 28, 8 40, 6 60 Z" />
-          <path d="M-64 16 C -30 2, 30 2, 64 16 C 30 10, -30 10, -64 16 Z" />
-          <path d="M-40 8 C -18 -2, 18 -2, 40 8 C 18 4, -18 4, -40 8 Z" />
-        </g>
-        <g transform="translate(300 150) scale(0.8)" fill="currentColor">
-          <path d="M0 60 C 4 40, 2 28, -6 14 L 6 14 C 2 28, 8 40, 6 60 Z" />
-          <path d="M-64 16 C -30 2, 30 2, 64 16 C 30 10, -30 10, -64 16 Z" />
-        </g>
-      </svg>
-    </>
-  );
-}
+const HEADLINE = "Every safari, run from one desk.";
 
 /**
- * Full-viewport hero: the savannah photograph with a slow Ken Burns zoom,
- * an SVG savannah silhouette layer that parallaxes on scroll, and staggered
- * copy. No WebGL, no three.js — reduced-motion users get a static image.
+ * First screen: who SafariDesk helps, what it does, and where to go next.
+ * Static local photograph, themed readability scrim, restrained reveal motion.
  */
 export default function Hero({
   imageSrc,
@@ -106,111 +41,183 @@ export default function Hero({
   imageSrc: string;
   imageAlt: string;
 }) {
+  const reduce = Boolean(useReducedMotion());
   const sectionRef = useRef<HTMLElement>(null);
-  const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start end", "end start"],
+    offset: ["start start", "end start"],
   });
-  // Parallax: the SVG band drifts up gently as you scroll away.
-  const hillsY = useTransform(scrollYProgress, [0, 1], [reduce ? 0 : 24, reduce ? 0 : -24]);
+  const distantHillY = useTransform(scrollYProgress, [0, 1], [0, 16]);
+  const nearHillY = useTransform(scrollYProgress, [0, 1], [0, 32]);
+
+  // With reduced motion the same markup renders without variants or transforms.
+  const fade = reduce ? {} : { variants: fadeUp, initial: "hidden", animate: "show" };
+  const stagger = reduce ? {} : { variants: container, initial: "hidden", animate: "show" };
 
   return (
     <section
       ref={sectionRef}
-      className="relative flex min-h-[92svh] items-center overflow-hidden bg-brand text-brand-foreground"
+      className="relative flex min-h-[92svh] items-center overflow-hidden bg-brand text-brand-foreground 3xl:min-h-[85svh] 4xl:min-h-[80svh]"
     >
-      <div className="absolute inset-0" aria-hidden>
-        <div className={reduce ? "" : "kenburns absolute inset-0"}>
-          <Image
-            src={imageSrc}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            placeholder="blur"
-            blurDataURL={BLUR_PLACEHOLDER}
-            className="object-cover"
-          />
-        </div>
-        {/* theme-tinted readability gradient (--background → transparent) */}
+      <div className="absolute inset-0">
+        <Image
+          src={imageSrc}
+          alt={imageAlt}
+          fill
+          priority
+          sizes="100vw"
+          placeholder="blur"
+          blurDataURL={BLUR_PLACEHOLDER}
+          className={`object-cover ${reduce ? "" : "hero-ken-burns"}`}
+        />
         <div
+          aria-hidden
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(to top, var(--background) 0%, color-mix(in oklab, var(--background) 55%, transparent) 45%, transparent 75%), linear-gradient(to right, color-mix(in oklab, var(--background) 70%, transparent) 0%, transparent 60%)",
+              "linear-gradient(90deg, color-mix(in oklab, var(--brand) 82%, transparent) 0%, color-mix(in oklab, var(--brand) 56%, transparent) 38%, color-mix(in oklab, var(--brand) 12%, transparent) 76%), linear-gradient(to top, color-mix(in oklab, var(--brand) 78%, transparent) 0%, color-mix(in oklab, var(--brand) 34%, transparent) 28%, transparent 68%)",
           }}
         />
       </div>
 
-      {!reduce && (
-        <motion.div className="absolute inset-0" style={{ y: hillsY }} aria-hidden>
-          <SavannahGraphics />
-        </motion.div>
-      )}
-      {reduce && <SavannahGraphics />}
+      <div
+        aria-hidden="true"
+        className="hero-sun pointer-events-none absolute right-[14%] top-[14%] size-20 rounded-full sm:right-[20%] sm:top-[16%] sm:size-32"
+      />
 
-      <div className="relative mx-auto w-full max-w-6xl px-4 pb-24 pt-32 sm:px-6">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 260"
+        preserveAspectRatio="xMidYMax slice"
+        className="hero-birds pointer-events-none absolute inset-x-0 top-[16%] h-[34%] w-full overflow-visible text-brand-foreground"
+      >
+        <g transform="translate(210 80)">
+          <g className="hero-bird-flight">
+            <path d="M0 10q8-10 16 0 8-10 16 0" />
+          </g>
+        </g>
+        <g transform="translate(390 40)">
+          <g className="hero-bird-flight hero-bird-flight-late">
+            <path d="M0 10q6-7 12 0 6-7 12 0" />
+          </g>
+        </g>
+        <g transform="translate(500 110)">
+          <g className="hero-bird-flight hero-bird-flight-later">
+            <path d="M0 10q5-6 10 0 5-6 10 0" />
+          </g>
+        </g>
+      </svg>
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[30%] min-h-36 max-h-80 overflow-hidden text-brand"
+      >
+        <svg viewBox="0 0 1440 300" preserveAspectRatio="xMidYMax slice" className="h-full w-full">
+          <motion.g style={{ y: reduce ? 0 : distantHillY }}>
+            <path
+              d="M0 202c118-45 202-17 312-52 112-35 191-5 300 18 98 21 155-43 284-26 128 16 197 51 310 23 91-23 160-4 234 28v107H0z"
+              fill="currentColor"
+              opacity=".38"
+            />
+            <path
+              d="M0 232c116-31 209-19 331-2 119 17 194-35 304-25 129 12 184 40 315 24 115-14 186-48 303-16 82 22 130 23 187 9v78H0z"
+              fill="currentColor"
+              opacity=".66"
+            />
+          </motion.g>
+          <motion.g style={{ y: reduce ? 0 : nearHillY }} fill="currentColor">
+            <path d="M0 263c124-26 205-17 319-8 128 10 214-22 352-12 116 8 186 30 314 18 133-13 210-22 304-3 72 14 112 13 151 4v38H0z" />
+            <g transform="translate(130 111) scale(1.05)">
+              <path d="M52 161c8-41 8-77 2-113l12-2c-2 43 2 80 12 115z" />
+              <path d="M4 48c18 3 35 1 51-6 17-11 38-11 61-2 17-7 35-5 52 5-14 5-28 6-43 3-19 8-39 8-60 2-18 7-39 7-61-2z" />
+            </g>
+            <g transform="translate(1180 154) scale(.72)">
+              <path d="M52 161c8-41 8-77 2-113l12-2c-2 43 2 80 12 115z" />
+              <path d="M4 48c18 3 35 1 51-6 17-11 38-11 61-2 17-7 35-5 52 5-14 5-28 6-43 3-19 8-39 8-60 2-18 7-39 7-61-2z" />
+            </g>
+          </motion.g>
+        </svg>
+      </div>
+
+      <div className="landing-shell relative z-10 pb-24 pt-28 sm:pb-28 sm:pt-32 3xl:py-40">
         <motion.p
-          variants={fadeUp}
-          initial="hidden"
-          animate="show"
-          className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-foreground/25 px-3 py-1 text-xs font-medium uppercase tracking-wider text-brand-foreground/90"
+          {...fade}
+          className="hero-copy mb-4 inline-flex items-center gap-2 rounded-full border border-brand-foreground/30 bg-brand/35 px-3 py-1.5 text-[0.7rem] font-medium uppercase tracking-wider text-brand-foreground backdrop-blur-sm sm:text-xs 4xl:text-sm"
         >
-          Booking · Payments · Dispatch · Safety
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
+          For safari operators, drivers &amp; guests
         </motion.p>
+
         <motion.h1
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="max-w-3xl text-4xl font-semibold leading-[1.05] sm:text-6xl"
+          {...stagger}
+          className="hero-copy landing-display max-w-3xl text-4xl leading-[1.06] sm:text-5xl sm:leading-[1.04] 3xl:max-w-5xl 3xl:text-6xl 4xl:max-w-6xl 4xl:text-8xl"
         >
-          {"Every safari, run from one desk.".split(" ").map((w, i) => (
-            <span key={i} className="inline-block overflow-hidden pb-1 align-bottom">
-              <motion.span variants={word} className="inline-block">
-                {w}
-                {i < "Every safari, run from one desk.".split(" ").length - 1 ? "\u00A0" : ""}
-              </motion.span>
-            </span>
-          ))}
+          {reduce ? (
+            HEADLINE
+          ) : (
+            HEADLINE.split(" ").map((w, i) => (
+              <span key={i} className="inline-block overflow-hidden pb-1 align-bottom">
+                <motion.span variants={word} className="inline-block">
+                  {w}
+                  {i < HEADLINE.split(" ").length - 1 ? "\u00A0" : ""}
+                </motion.span>
+              </span>
+            ))
+          )}
         </motion.h1>
+
         <motion.p
-          variants={fadeUp}
-          initial="hidden"
-          animate="show"
-          className="mt-5 max-w-xl text-base text-brand-foreground sm:text-lg"
+          {...fade}
+          className="hero-copy mt-5 max-w-xl text-base leading-relaxed text-brand-foreground sm:text-lg 3xl:max-w-3xl 3xl:text-xl 4xl:text-2xl"
         >
-          Quotes in under a minute, M-Pesa deposits reconciled automatically, drivers
-          dispatched by SMS, and safety alerts that reach every guest on an active trip.
+          SafariDesk turns each quote into one shared trip record — M-Pesa deposits, driver
+          dispatch and guest safety alerts included.
         </motion.p>
+
         <motion.div
-          variants={fadeUp}
-          initial="hidden"
-          animate="show"
-          className="mt-8 flex flex-wrap gap-3"
+          {...fade}
+          className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:gap-4"
         >
-          <Button asChild size="lg" className="bg-accent text-accent-foreground shadow-lg hover:bg-accent/90">
-            <a href="/sign-up">Plan a safari</a>
+          <Button
+            asChild
+            size="lg"
+            className="hero-btn w-full bg-accent text-accent-foreground hover:bg-accent/90 sm:w-auto"
+          >
+            <Link href="/sign-up">Plan a safari</Link>
           </Button>
           <Button
             asChild
             size="lg"
             variant="outline"
-            className="border-brand-foreground/30 bg-transparent text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
+            className="hero-btn w-full border-brand-foreground/40 bg-brand/25 text-brand-foreground hover:bg-brand/45 hover:text-brand-foreground sm:w-auto"
           >
-            <a href="/sign-in">Sign in</a>
+            <Link href="/sign-in">Sign in</Link>
           </Button>
         </motion.div>
-        <motion.a
-          variants={fadeUp}
-          initial="hidden"
-          animate="show"
-          href="#parks"
-          className={`mt-16 hidden items-center gap-2 text-xs font-medium text-brand-foreground/80 transition-colors hover:text-brand-foreground sm:inline-flex ${reduce ? "" : "animate-bounce"}`}
+
+        <motion.p
+          {...fade}
+          className="hero-copy mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-brand-foreground/85 3xl:text-sm"
         >
-          Explore the parks <ChevronDown className="h-4 w-4" />
+          <span className="font-semibold">{STATS[0]!.value.toLocaleString("en-KE")}{STATS[0]!.suffix} trips run</span>
+          <span aria-hidden>·</span>
+          <span>{STATS[2]!.value} parks covered</span>
+          <span aria-hidden>·</span>
+          <span>Kenya &amp; Tanzania</span>
+        </motion.p>
+
+        <motion.a
+          {...fade}
+          href="#why-us"
+          className="hero-copy mt-12 hidden items-center gap-2 text-xs font-medium text-brand-foreground/90 transition-colors hover:text-brand-foreground sm:inline-flex 4xl:text-base"
+        >
+          See why teams switch <ChevronDown className="h-4 w-4" aria-hidden />
         </motion.a>
       </div>
+
+      <p className="hero-copy absolute bottom-3 right-4 z-10 hidden text-[10px] text-brand-foreground/80 sm:block">
+        Photo: {HERO_CREDIT}
+      </p>
     </section>
   );
 }

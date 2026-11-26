@@ -14,6 +14,8 @@ hotlinked. Replace any image by dropping a new file at the same path.
 - `/images/attractions/lamu-old-town.jpg` — “Lamu old town street.jpg” by **Mzein04**, licensed **CC BY-SA 4.0**. Source: https://commons.wikimedia.org/wiki/File:Lamu_old_town_street.jpg
 - `/images/attractions/mount-kenya.jpg` — “MOUNT KENYA IN THE MORNING 03.jpg” by **John Mynaar**, licensed **CC BY-SA 4.0**. Source: https://commons.wikimedia.org/wiki/File:MOUNT_KENYA_IN_THE_MORNING_03.jpg
 - `/images/attractions/stone-town-zanzibar.jpg` — “Puerto de Stone Town, Zanzíbar, Tanzania, 2024-05-31, DD 03.jpg” by **Diego Delso**, licensed **CC BY-SA 4.0**. Source: https://commons.wikimedia.org/wiki/File:Puerto_de_Stone_Town,_Zanz%C3%ADbar,_Tanzania,_2024-05-31,_DD_03.jpg
+- `/images/hero/safari-tourists-samburu.jpg` — “Safari vehicles in Samburu National Reserve, Kenya.jpg” by **Daniel Case**, licensed **CC BY-SA 4.0**. Source: https://commons.wikimedia.org/wiki/File:Safari_vehicles_in_Samburu_National_Reserve,_Kenya.jpg
+
 - `/images/hero/maasai-mara-golden-hour-savannah.jpg` — “Lioness in landscape under setting sun, Maasai Mara, Kenya.jpg” by **Daniel Case**, licensed **CC BY-SA 4.0**. Source: https://commons.wikimedia.org/wiki/File:Lioness_in_landscape_under_setting_sun,_Maasai_Mara,_Kenya.jpg
 - `/images/hero/savannah-sunset-acacia-africa.jpg` — “The Savannah’s Last Ember.jpg” by **Temptious**, licensed **CC0**. Source: https://commons.wikimedia.org/wiki/File:The_Savannah%E2%80%99s_Last_Ember.jpg
 - `/images/parks/amboseli-elephants-kilimanjaro.jpg` — “Amboseli National Park and Mt. Kilimanjaro.jpg” by **Ninaras**, licensed **CC BY 4.0**. Source: https://commons.wikimedia.org/wiki/File:Amboseli_National_Park_and_Mt._Kilimanjaro.jpg

@@ -32,8 +32,14 @@ async def main() -> None:
         first = await client.post(ussd_url, params={"token": settings.webhook_token}, data=data)
         print(f"local_ussd_initial={first.status_code}; response_starts_con={first.text.startswith('CON ')}")
         data["text"] = "1"
-        second = await client.post(ussd_url, params={"token": settings.webhook_token}, data=data)
-        print(f"local_ussd_reply={second.status_code}; response_starts_end={second.text.startswith('END ')}")
+        destinations = await client.post(ussd_url, params={"token": settings.webhook_token}, data=data)
+        print(
+            f"local_ussd_destinations={destinations.status_code}; "
+            f"contains_mara={'Maasai Mara' in destinations.text}"
+        )
+        data["text"] = "1*1"
+        detail = await client.post(ussd_url, params={"token": settings.webhook_token}, data=data)
+        print(f"local_ussd_detail={detail.status_code}; response_starts_end={detail.text.startswith('END ')}")
 
         missing = await client.post(ussd_url, data={"sessionId": "no-auth-test"})
         print(f"local_ussd_without_token={missing.status_code}")
@@ -50,8 +56,10 @@ async def main() -> None:
 
         assert health.status_code == 200
         assert body.get("database") == "postgresql" and body.get("mockData") is False
-        assert first.status_code == second.status_code == 200
-        assert first.text.startswith("CON ") and second.text.startswith("END ")
+        assert first.status_code == destinations.status_code == detail.status_code == 200
+        assert first.text.startswith("CON ")
+        assert destinations.text.startswith("CON ") and "Maasai Mara" in destinations.text
+        assert detail.text.startswith("END ") and "Great Migration" in detail.text
         assert missing.status_code == header_only.status_code == 401
         assert valid.status_code == 200
 

@@ -1,8 +1,9 @@
 # SafariDesk PostgreSQL guide
 
 The Python API and PostgreSQL MCP server use the same local PostgreSQL 18
-database (`safaridesk`). There is no memory store, mock database, or demo seed.
-The application applies migrations from `backend/migrations_python/` at startup.
+database (`safaridesk`). There is no memory store or mock database. Startup
+migrations seed only the fixed public destination directory, not demo business
+transactions.
 
 ## Local database
 
@@ -24,11 +25,14 @@ queries without data or schema mutation.
 API for booking, fleet, rates, payments, alerts, analytics and other resource
 collections. `003_africastalking.sql` creates `sms_messages`, `sms_inbound`,
 `sms_opt_outs`, and `ussd_sessions` for provider status, deduplication, opt-out,
-and multi-turn USSD state.
+and multi-turn USSD state. `004_destination_catalog.sql` inserts the initial
+real-world park/reserve names used by Rates and the USSD destination menu.
 
-Only the configured first administrator is created automatically. No customer,
-driver, booking, or demo staff records are seeded; create staff through the
-admin UI or use normal signup/invite workflows.
+Only the configured first administrator is created automatically. Migration
+`004_destination_catalog.sql` adds four real destination names so the Rates page
+and USSD are usable on first run; it adds no packages, prices, availability,
+customers, drivers, bookings, or demo staff. Create operational records through
+the admin UI or normal signup/invite workflows.
 
 ## Check the database
 

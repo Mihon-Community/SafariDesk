@@ -37,11 +37,15 @@ def settings(**overrides):
 
 
 class Cursor:
-    def __init__(self, row=None):
+    def __init__(self, row=None, rows=None):
         self.row = row
+        self.rows = rows or []
 
     def fetchone(self):
         return self.row
+
+    def fetchall(self):
+        return self.rows
 
 
 class FakeConnection:
@@ -52,6 +56,9 @@ class FakeConnection:
         normalized = " ".join(sql.lower().split())
         if normalized.startswith("select 1 from sms_opt_outs"):
             return Cursor({"1": 1} if params[0] in self.state["optouts"] else None)
+
+        if normalized.startswith("select payload from business_records where record_type = %s"):
+            return Cursor(rows=[{"payload": {"name": item["name"]}} for item in self.state["parks"]])
 
         if normalized.startswith("insert into sms_messages"):
             (row_id, provider_id, recipient_hash, event_kind, api_status,
@@ -118,7 +125,7 @@ class FakeConnection:
 
 class FakePool:
     def __init__(self):
-        self.state = {"sms": {}, "sessions": {}, "inbound": {}, "optouts": {}}
+        self.state = {"sms": {}, "sessions": {}, "inbound": {}, "optouts": {}, "parks": []}
 
     @contextmanager
     def connection(self):
@@ -241,7 +248,7 @@ def test_ussd_returns_persistent_con_and_end_plain_text():
     })
     assert first.status_code == 200
     assert first.headers["content-type"].startswith("text/plain")
-    assert first.text.startswith("CON SafariDesk")
+    assert first.text == "CON SafariDesk\n1. Safari destinations\n2. Booking help\n0. Exit"
 
     selected = client.post("/ussd", params={"token": TOKEN}, data={
         "sessionId": "session-one",
@@ -250,18 +257,65 @@ def test_ussd_returns_persistent_con_and_end_plain_text():
         "text": "1",
     })
     assert selected.status_code == 200
-    assert selected.text.startswith("END Browse safari options")
+    assert selected.text.startswith("CON Safari destinations\n1. Maasai Mara")
+    assert "2. Amboseli" in selected.text and "3. Tsavo East" in selected.text
+    assert "9. More destinations" in selected.text
+
+    detail = client.post("/ussd", params={"token": TOKEN}, data={
+        "sessionId": "session-one",
+        "serviceCode": SERVICE_CODE,
+        "phoneNumber": PHONE,
+        "text": "1*1",
+    })
+    assert detail.status_code == 200
+    assert detail.text.startswith("END Maasai Mara Reserve: Great Migration and Big Five")
 
     replay = client.post("/ussd", params={"token": TOKEN}, data={
         "sessionId": "session-one",
         "serviceCode": SERVICE_CODE,
         "phoneNumber": PHONE,
-        "text": "1",
+        "text": "1*1",
     })
-    assert replay.text == selected.text
+    assert replay.text == detail.text
     stored = pool.state["sessions"]["session-one"]
     assert stored["phone_hash"] != PHONE
-    assert stored["state"]["response_text"] == selected.text
+    assert stored["state"]["response_text"] == detail.text
+
+
+def test_ussd_destination_pages_and_back_navigation():
+    client = TestClient(make_app())
+
+    def select(text):
+        return client.post("/ussd", params={"token": TOKEN}, data={
+            "sessionId": "pages-session",
+            "serviceCode": SERVICE_CODE,
+            "phoneNumber": PHONE,
+            "text": text,
+        })
+
+    assert "Safari destinations" in select("").text
+    first_page = select("1")
+    assert first_page.text.startswith("CON Safari destinations")
+    second_page = select("1*9")
+    assert "Nairobi National Park" in second_page.text
+    detail = select("1*9*1")
+    assert detail.text.startswith("END Nairobi National Park: Wildlife drives")
+    back = select("1*9*0")
+    assert back.text.startswith("CON Safari destinations") and "Maasai Mara" in back.text
+
+
+def test_ussd_prefers_operator_parks_from_postgres_catalog():
+    pool = FakePool()
+    pool.state["parks"] = [{"name": "Ol Pejeta Conservancy"}]
+    client = TestClient(make_app(pool))
+    common = {"token": TOKEN}
+    payload = {"sessionId": "catalog-session", "serviceCode": SERVICE_CODE, "phoneNumber": PHONE}
+
+    client.post("/ussd", params=common, data={**payload, "text": ""})
+    menu = client.post("/ussd", params=common, data={**payload, "text": "1"})
+    assert "Ol Pejeta Conservancy" in menu.text
+    detail = client.post("/ussd", params=common, data={**payload, "text": "1*1"})
+    assert detail.text.startswith("END Ol Pejeta Conservancy: Ask SafariDesk")
 
 
 def test_ussd_alias_and_auth_failures_are_at_compatible():

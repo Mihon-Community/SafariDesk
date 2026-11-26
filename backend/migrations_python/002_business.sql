@@ -1,4 +1,5 @@
--- Only records submitted through the API are stored. No sample or demo rows are seeded.
+-- Operational records are created through the API. Migration 004 seeds only
+-- public destination reference rows; no bookings, guests, prices, or inventory.
 CREATE TABLE IF NOT EXISTS business_records (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     record_type text NOT NULL CHECK (record_type IN (

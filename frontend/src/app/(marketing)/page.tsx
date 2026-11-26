@@ -11,7 +11,9 @@ import {
   PricingSection,
   Testimonials,
   TrustBar,
+  WhySafariDeskSection,
 } from "@/components/landing/sections";
+import { AutoGallery } from "@/components/landing/AutoGallery";
 import { HERO_IMAGE } from "@/lib/landing-data";
 
 export const metadata = {
@@ -21,16 +23,17 @@ export const metadata = {
 };
 
 /**
- * Public landing page (Phase 3). The hero renders a React Three Fiber savannah
- * where WebGL is available and the user has not asked for reduced motion;
- * otherwise it shows the static hero photograph.
+ * Public landing page. The hero is just the local tourist safari photograph
+ * as a static background with a readability scrim behind the copy.
  */
 export default function LandingPage() {
   return (
     <main>
       <MarketingHeader />
-      <Hero imageSrc={HERO_IMAGE} imageAlt="Golden-hour savannah with acacia trees" />
+      <Hero imageSrc={HERO_IMAGE} imageAlt="Tourists on game drive in Samburu National Reserve, Kenya" />
       <TrustBar />
+      <WhySafariDeskSection />
+      <AutoGallery />
       <ParksSection />
       <AttractionsSection />
       <HowItWorks />

@@ -781,6 +781,131 @@ body {
   }
 }
 
+/* Marketing pages: full-bleed hero, but the content column grows on big TVs. */
+.landing-shell {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  max-width: 1152px;
+}
+@media (min-width: 640px) {
+  .landing-shell { padding-inline: 1.5rem; }
+}
+@media (min-width: 120rem) { /* 1920px TVs */
+  .landing-shell { max-width: 1680px; }
+}
+@media (min-width: 160rem) { /* 2560px */
+  .landing-shell { max-width: 2320px; }
+}
+@media (min-width: 240rem) { /* 4K */
+  .landing-shell { max-width: 2880px; }
+}
+
+/* FAQ stays a comfortable reading measure on very wide screens. */
+.faq-shell { max-width: 768px; }
+@media (min-width: 120rem) { .faq-shell { max-width: 896px; } }
+@media (min-width: 160rem) { .faq-shell { max-width: 1024px; } }
+
+/* Scrim + text shadow let the photo show through while keeping AA contrast. */
+.hero-copy {
+  text-shadow: 0 2px 14px color-mix(in oklab, var(--brand) 72%, transparent);
+}
+.hero-btn {
+  box-shadow: 0 10px 30px color-mix(in oklab, var(--brand) 38%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-ken-burns {
+    animation: hero-ken-burns 24s ease-in-out infinite alternate;
+  }
+  @keyframes hero-ken-burns {
+    from { transform: scale(1); }
+    to { transform: scale(1.08); }
+  }
+}
+
+.hero-sun {
+  background:
+    radial-gradient(
+      circle at 36% 34%,
+      color-mix(in oklab, var(--accent) 45%, var(--brand-foreground)) 0%,
+      var(--accent) 62%,
+      color-mix(in oklab, var(--accent) 12%, transparent) 100%
+    );
+  box-shadow: 0 0 76px 20px color-mix(in oklab, var(--accent) 32%, transparent);
+  opacity: 0.78;
+}
+
+.hero-birds path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-bird-flight {
+    animation: hero-bird-glide 22s ease-in-out infinite alternate;
+  }
+  .hero-bird-flight-late { animation-delay: -8s; }
+  .hero-bird-flight-later { animation-delay: -15s; }
+  @keyframes hero-bird-glide {
+    from { transform: translate(0, 0); }
+    to { transform: translate(112px, -18px); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-birds { display: none; }
+}
+
+/* Editorial display type, shared by marketing headings and app page titles.
+   Uses a system serif: no font download or new dependency. */
+.display-type,
+.landing-display {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* One card language: surface, interactive lift, media, chip, divider. */
+.card-surface {
+  background-color: var(--card);
+  border-color: var(--border);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+.card-interactive {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -14px color-mix(in oklab, var(--brand) 45%, transparent);
+    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+  }
+}
+.card-interactive:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.card-media {
+  background-color: var(--muted);
+}
+.card-chip {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+.card-divider {
+  border-color: var(--border);
+}
+.landing-shell :where(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+  border-radius: 0.35rem;
+}
+
 /* Content stays readable; only the dashboard stretches wider. */
 .page-shell {
   width: 100%;
@@ -955,33 +1080,9 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
- * Landing hero (lightweight: photo + SVG + motion; no three.js)
+ * Landing hero: static photo background only. Animation below is for the
+ * testimonial marquee and "How it works" route line, not the hero.
  * ------------------------------------------------------------------------- */
-@keyframes kenburns {
-  from { transform: scale(1); }
-  to   { transform: scale(1.08); }
-}
-.kenburns {
-  animation: kenburns 20s ease-out forwards;
-  will-change: transform;
-}
-
-@keyframes glide {
-  0%   { transform: translate3d(-10vw, 0, 0); opacity: 0; }
-  10%  { opacity: 0.9; }
-  50%  { transform: translate3d(45vw, -6vh, 0); }
-  90%  { opacity: 0.9; }
-  100% { transform: translate3d(105vw, 0, 0); opacity: 0; }
-}
-.bird-glide {
-  animation: glide 26s linear infinite;
-  will-change: transform, opacity;
-}
-.bird-glide-slow {
-  animation-duration: 38s;
-  animation-delay: -12s;
-}
-
 @keyframes marquee-x {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
@@ -995,13 +1096,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kenburns,
-  .bird-glide,
   .marquee-track {
     animation: none;
-  }
-  .bird-glide {
-    display: none;
   }
 }
 

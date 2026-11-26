@@ -177,24 +177,34 @@ code and an allowed Kenyan test number. Expected menu:
 
 ```text
 CON SafariDesk
-1. Browse safari options
+1. Safari destinations
 2. Booking help
 0. Exit
 ```
 
-Reply `1`, `2`, or `0` to complete a menu path. The API stores the session state
-in PostgreSQL; `1` responds with the public `/parks` link and `2` returns the
-booking-help message. Verified on 26 Nov 2026 through the Africa's Talking
-simulator using the configured Sandbox service code: the menu appeared and
-reply `1` returned the SafariDesk parks link. If the simulator says the service
-is unavailable, check the configured service code, callback URL, test number
+Reply `1` to see the destination list, then choose a destination to see a short
+highlight and booking guidance. Reply `2` for booking help or `0` to exit. The
+API stores session state and the park catalogue in PostgreSQL. A fresh database
+gets four real destinations from a one-time migration; additional park records
+created through the Rates API appear in the menu automatically. If the catalogue
+is empty, it uses concise destination highlights based on [Magical Kenya](https://magicalkenya.com/experience/the-great-migration/)
+and Kenya Wildlife Service information for [Amboseli](https://reservations.kws.go.ke/mbugani-homes/kilimanjaro-guest-house),
+[Tsavo East](https://kws.go.ke/wp-content/uploads/2026/02/Kenya-Parks-Investment-Prospectus-2023.pdf),
+and [Nairobi National Park](https://kws.go.ke/park/nairobi-national-park/). It does
+not invent packages, prices, availability, or bookings. If the simulator says
+the service is unavailable, check the service code, callback URL, test number
 allowlist, and that the local servers and ngrok tunnel are running.
+
+The public website's Featured Parks cards show the same four destination
+highlights for presentation visitors. Those marketing cards are static frontend
+content; the live USSD menu reads the park catalogue from PostgreSQL.
 
 The public ngrok callback can also be checked without the simulator by POSTing
 URL-encoded `sessionId`, `serviceCode`, `phoneNumber`, and `text` fields to the
-USSD URL above. Start with blank `text`, then post the same `sessionId` with
-`text=1`. It should return HTTP 200 and then an `END` response. Do not include
-the webhook token in screenshots or logs.
+USSD URL above. Start with blank `text` (`CON` main menu), send `text=1` (`CON`
+destination list), then `text=1*1` (`END` Maasai Mara highlight). Keep the same
+session ID for all three requests. Do not include the webhook token in screenshots
+or logs.
 
 For a guarded repeatable public round-trip, run this only after approving the
 transfer of `WEBHOOK_TOKEN` and `AT_TEST_PHONE` through ngrok:
@@ -203,10 +213,11 @@ transfer of `WEBHOOK_TOKEN` and `AT_TEST_PHONE` through ngrok:
 .\.venv\Scripts\python.exe scripts/verify_public_ussd.py --confirm-secrets-through-ngrok
 ```
 
-The script reads values from `backend/.env`, prints only statuses and response
-types, sends an initial menu request followed by reply `1`, and posts a fake
-delivery report for a nonexistent message ID. It verifies the public
-application routes, not callbacks originating from Africa's Talking.
+The script reads values from `backend/.env`, prints only statuses and a catalog
+presence check, sends an initial menu request, opens the destination list,
+selects the first listed destination, and posts a fake delivery report for a
+nonexistent message ID. It verifies the public application routes, not callbacks
+originating from Africa's Talking.
 
 Local authenticated callback smoke check (does not send data outside localhost):
 
@@ -215,10 +226,10 @@ cd C:\Users\Administrator\Desktop\SafariDesk\backend
 .\.venv\Scripts\python.exe scripts/verify_local_callbacks.py
 ```
 
-It verifies PostgreSQL health, a `CON` then `END` USSD session, 401 for
-unauthenticated USSD and header-only delivery reports, and 200 for a delivery
-report with the query token. The public route protection check sends no
-credentials or phone number and should return 401:
+It verifies PostgreSQL health, the initial menu, destination list and selected
+destination detail, 401 for unauthenticated USSD and header-only delivery
+reports, and 200 for a delivery report with the query token. The public route
+protection check sends no credentials or phone number and should return 401:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/verify_public_route_protection.py
@@ -281,7 +292,7 @@ behavior](https://help.africastalking.com/en/articles/1170660-how-do-i-get-start
 [SMS delivery failure reasons](https://help.africastalking.com/en/articles/742491-why-did-my-messages-fail),
 and [SMS status codes](https://help.africastalking.com/en/articles/16150386-messaging-error-codes).
 
-Checks run for this migration: Python `pytest` (29 passed), frontend
+Checks run for this migration: Python `pytest` (31 passed), frontend
 `npm.cmd run lint`, `npm.cmd run typecheck`, and `npm.cmd run build` all passed.
 
 Playwright loaded all eleven signed-in routes (`/dashboard`, `/bookings`,
@@ -291,7 +302,9 @@ the API requests observed for those views returned HTTP 200. Ngrok MCP confirmed
 the public endpoint forwarded to port 3002 with no traffic policy. Public
 unauthenticated USSD and delivery-report requests returned 401. The authenticated
 public route round-trip passed the guarded check below. The Sandbox callback
-settings were read back, and the provider simulator completed the USSD menu flow.
+settings were read back. The current destination flow was verified through the
+public callback; Africa's Talking's interactive simulator page required a fresh
+sign-in during the retest.
 
 Public-route recheck (26 Nov 2026): Playwright's fresh browser context first
 showed ngrok's free-tier `ERR_NGROK_6024` visit warning. After clicking **Visit
@@ -303,13 +316,13 @@ this check. The interstitial applies to browser GETs; Africa's Talking callbacks
 are POST requests.
 
 Authenticated public USSD recheck (26 Nov 2026): the guarded script sent the
-configured test phone and webhook token through ngrok. The initial menu returned
-HTTP 200 with `CON`; replying `1` returned HTTP 200 with `END`; the SMS delivery
-report route returned HTTP 200 for a fake, nonexistent message ID. Neither secret
-value was printed. This confirms the public callback round-trip. The actual
-Sandbox USSD simulator also invoked the saved callback and rendered its menu;
-reply `1` returned the parks link. The saved USSD, outgoing SMS delivery, and
-incoming SMS callback URLs were read back and matched the local configuration.
+configured test phone and webhook token through ngrok. The main menu, destination
+list (including Maasai Mara), and selected destination detail returned HTTP 200
+with the expected `CON`/`END` responses; the SMS delivery-report route returned
+HTTP 200 for a fake, nonexistent message ID. Neither secret value was printed.
+The provider simulator had previously confirmed callback connectivity before
+this menu improvement. The saved USSD, outgoing SMS delivery, and incoming SMS
+callback URLs were read back and matched the local configuration.
 
 ## Troubleshooting
 

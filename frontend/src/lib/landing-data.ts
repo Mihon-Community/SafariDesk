@@ -5,12 +5,15 @@ import heroImage from "./landing-images.json";
  * manifest (`public/images/CREDITS.md` lists sources and licences).
  */
 const IMG = heroImage as {
-  hero: { src: string; title: string }[];
+  hero: { src: string; title: string; artist: string; license: string }[];
   parks: { src: string; title: string }[];
   attractions: { src: string; title: string }[];
 };
 
 export const HERO_IMAGE = IMG.hero[0]?.src ?? "/images/hero/savannah-sunset-acacia-africa.jpg";
+export const HERO_CREDIT = IMG.hero[0]
+  ? `${IMG.hero[0].artist} · ${IMG.hero[0].license}`
+  : "Wikimedia Commons";
 
 function img(list: { src: string }[], index: number) {
   return list[index % Math.max(list.length, 1)]?.src ?? "";
@@ -24,13 +27,13 @@ export interface Park {
 }
 
 export const PARKS: Park[] = [
-  { name: "Maasai Mara", region: "Narok, Kenya", description: "Big cats, river crossings and the Great Migration.", image: img(IMG.parks, 0) },
-  { name: "Amboseli", region: "Kajiado, Kenya", description: "Elephants against the snows of Kilimanjaro.", image: img(IMG.parks, 1) },
-  { name: "Tsavo East", region: "Coast, Kenya", description: "Red-dust plains and the Galana River.", image: img(IMG.parks, 2) },
+  { name: "Maasai Mara", region: "Narok, Kenya", description: "Great Migration and Big Five wildlife viewing.", image: img(IMG.parks, 0) },
+  { name: "Amboseli", region: "Kajiado, Kenya", description: "Elephant herds and views of Mount Kilimanjaro.", image: img(IMG.parks, 1) },
+  { name: "Tsavo East", region: "Coast, Kenya", description: "Red elephants, Galana River and Yatta Plateau.", image: img(IMG.parks, 2) },
   { name: "Tsavo West", region: "Coast, Kenya", description: "Lava fields, springs and rhino sanctuaries.", image: img(IMG.parks, 3) },
   { name: "Samburu", region: "Rift Valley, Kenya", description: "Northern specials: Grevy's zebra and reticulated giraffe.", image: img(IMG.parks, 4) },
   { name: "Lake Nakuru", region: "Rift Valley, Kenya", description: "Flamingo fringes and endangered white rhino.", image: img(IMG.parks, 5) },
-  { name: "Nairobi National Park", region: "Nairobi, Kenya", description: "A wildlife park on the city skyline.", image: img(IMG.parks, 6) },
+  { name: "Nairobi National Park", region: "Nairobi, Kenya", description: "Wildlife drives with Nairobi's skyline nearby.", image: img(IMG.parks, 6) },
   { name: "Serengeti", region: "Tanzania", description: "Endless plains at the heart of the migration.", image: img(IMG.parks, 7) },
   { name: "Ngorongoro", region: "Arusha, Tanzania", description: "A crater full of lions and 20,000 animals.", image: img(IMG.parks, 8) },
 ];

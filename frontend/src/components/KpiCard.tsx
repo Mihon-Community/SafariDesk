@@ -66,10 +66,12 @@ export function KpiCard({
     <>
       <div className="flex items-start justify-between gap-2 p-4 pb-2">
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-muted-foreground">{title}</p>
-          <p className="mt-1.5 text-2xl font-semibold tracking-tight">{formatted}</p>
+          <p className="truncate text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {title}
+          </p>
+          <p className="display-type mt-1.5 text-2xl leading-none 3xl:text-3xl">{formatted}</p>
         </div>
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary">
+        <span className="card-chip grid size-9 shrink-0 place-items-center rounded-lg text-primary">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
       </div>
@@ -78,9 +80,7 @@ export function KpiCard({
         {delta !== undefined && (
           <span
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-              up
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                : "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400"
+              up ? "chip-success" : "chip-danger"
             }`}
           >
             {up ? "▲" : "▼"} {Math.abs(delta)}%
@@ -99,7 +99,7 @@ export function KpiCard({
     return (
       <Link
         href={href}
-        className="block h-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)] transition-[transform,opacity,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="card-surface card-interactive block h-full overflow-hidden rounded-xl border"
         title={hint ?? `${title}: ${formatted}`}
       >
         {body}
@@ -108,7 +108,7 @@ export function KpiCard({
   }
   return (
     <div
-      className="h-full overflow-hidden rounded-xl border bg-card shadow-[var(--shadow-card)]"
+      className="card-surface h-full overflow-hidden rounded-xl border"
       title={hint ?? `${title}: ${formatted}`}
     >
       {body}
