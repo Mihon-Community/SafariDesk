@@ -154,6 +154,43 @@ omitted in Sandbox. The backend keeps provider HTTP status and AT recipient
 status in the response so a rejection can be diagnosed instead of shown as a
 false success.
 
+Incoming SMS replies use the same PostgreSQL destination catalog as the website
+and USSD menu. Send these commands to the Sandbox shortcode:
+
+| Text | Reply |
+|---|---|
+| `HELP` | Lists SMS commands |
+| `PARKS` | Lists up to four destinations with numbers |
+| `PARKS 2` | Lists the next page, if present |
+| A listed number or park name | Sends that destination's short description and booking guidance |
+| `BOOK` | Links to the website and explains that an operator confirms dates, availability and rates |
+| `STOP` / `START` | Stops / re-enables service messages |
+
+When more destinations exist, the list tells the guest which `PARKS <page>`
+command to send. A number in a later page still selects the matching numbered
+destination. No availability or prices are invented in SMS replies. After
+`STOP`, destination and booking replies remain suppressed until `START`; `HELP`
+and the opt-out confirmation still work.
+
+To test the public callback and actual Sandbox outbound replies to the configured
+allowlisted test number, run this from `backend` while PostgreSQL, the API, and
+the ngrok tunnel are running:
+
+```powershell
+cd C:\Users\Administrator\Desktop\SafariDesk\backend
+.\.venv\Scripts\python.exe scripts/verify_public_sms.py --confirm-secrets-through-ngrok
+```
+
+This sends two Sandbox messages (the destination list and the first destination
+detail). The script prints only callback status and provider acceptance codes;
+it does not print the callback token or phone number. Provider code `101` means
+accepted by the Sandbox messaging API, not delivered to a physical handset.
+
+Latest public SMS check (26 Nov 2026): the `PARKS` and `1` callbacks each
+returned HTTP 200, and Africa's Talking accepted both replies with provider code
+`101`. The Sandbox portal redirected to sign-in during this check, so its inbox
+was not independently inspected after these two messages.
+
 Latest website check (26 Nov 2026): Playwright submitted one staff invite to
 the configured allowlisted Sandbox number. The invite API returned HTTP 201;
 Africa's Talking returned HTTP 201, recipient status `Success`, and code `101`
@@ -237,8 +274,10 @@ protection check sends no credentials or phone number and should return 401:
 
 The callback URLs were saved in the Sandbox and read back against the generated
 local URLs. The USSD simulator test above exercises an Africa's Talking-originated
-session. An inbound SMS initiated from the simulator has not been separately
-verified; the website invite flow verifies outbound SMS.
+session. The guarded SMS verifier posts inbound callback forms through the public
+route and confirms that both outbound Sandbox replies were accepted with provider
+code `101`. For a full simulator round-trip, send `PARKS` and then `1` from an
+Africa's Talking Sandbox SMS simulator session and check the reply thread there.
 
 ## 7. PostgreSQL MCP
 

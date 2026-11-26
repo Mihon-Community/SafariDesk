@@ -179,9 +179,9 @@ async def send_sms(
     if not username or not api_key:
         return {"accepted": False, "reason": "not_configured", "recipients": []}
 
-    # STOP and START confirmations acknowledge preference changes. Other
-    # notifications are suppressed after STOP.
-    if event_kind.upper() not in {"STOP", "START"} and webhook_token:
+    # Preference confirmations and user-requested HELP remain available after
+    # STOP. Other service messages stay suppressed until the guest texts START.
+    if event_kind.upper() not in {"STOP", "START", "HELP"} and webhook_token:
         opted_out = await run_in_threadpool(_is_opted_out, pool, _phone_hash(normalized_phone, settings))
         if opted_out:
             return {"accepted": False, "reason": "opted_out", "recipients": []}
@@ -357,6 +357,11 @@ def _destination_catalog(conn: Any) -> list[dict[str, str]]:
     return destinations or list(_DEFAULT_DESTINATIONS)
 
 
+def _load_destination_catalog(pool: Any) -> list[dict[str, str]]:
+    with pool.connection() as conn:
+        return _destination_catalog(conn)
+
+
 def _destination_menu(destinations: list[dict[str, str]], page: int) -> str:
     start = page * 3
     items = destinations[start:start + 3]
@@ -465,23 +470,92 @@ def _process_ussd(
     return response_text
 
 
-def _classify_sms(text: str, public_app_url: str) -> tuple[str, str, str | None]:
-    command_text = text.strip().upper()
+def _sms_destination_key(value: str) -> str:
+    words = re.findall(r"[a-z0-9]+", value.casefold())
+    while words and words[-1] in {"national", "park", "reserve"}:
+        words.pop()
+    return " ".join(words)
+
+
+def _sms_destination_detail(
+    text: str,
+    destinations: list[dict[str, str]],
+) -> dict[str, str] | None:
+    term = text.strip()
+    if term.upper().startswith("PARK "):
+        term = term[5:].strip()
+    if term.isdigit():
+        index = int(term)
+        return destinations[index - 1] if 1 <= index <= len(destinations) else None
+
+    key = _sms_destination_key(term)
+    if key == "mara":
+        key = "maasai mara"
+    elif key == "tsavo":
+        key = "tsavo east"
+    if not key:
+        return None
+    for destination in destinations:
+        destination_key = _sms_destination_key(destination["name"])
+        if destination_key == key or (key == "tsavo" and destination_key.startswith("tsavo ")):
+            return destination
+    return None
+
+
+def _sms_destination_label(name: str) -> str:
+    label = re.sub(
+        r"\s+(?:National Park|National Reserve|Reserve|Conservancy)$",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    )
+    return label[:16].strip()
+
+
+def _classify_sms(
+    text: str,
+    public_app_url: str,
+    destinations: list[dict[str, str]] | None = None,
+) -> tuple[str, str, str | None]:
+    command_text = re.sub(r"\s+", " ", text.strip().upper())
+    catalog = destinations or list(_DEFAULT_DESTINATIONS)
     if command_text in {"STOP", "UNSUBSCRIBE", "CANCEL", "QUIT", "END"}:
         return "STOP", "SafariDesk SMS updates are stopped. Text START to re-enable service messages.", "stop"
     if command_text == "START":
-        return "START", "SafariDesk service SMS is enabled. Text HELP for options.", "start"
+        return "START", "SafariDesk SMS is enabled. Text HELP for options or PARKS to browse destinations.", "start"
+    if command_text == "HELP":
+        return "HELP", "SafariDesk: Text PARKS for options, a number or park name for details, or BOOK for booking help. STOP opts out; START re-enables.", None
     if command_text == "BOOK":
         app_url = public_app_url.rstrip("/")
-        reply = (
-            f"Browse safari options at {app_url}/parks. Contact your operator to complete a booking."
-            if app_url
-            else "To browse safari options, visit the SafariDesk website or contact your safari operator."
-        )
+        browse = f"or visit {app_url}/parks" if app_url else "or contact your safari operator"
+        reply = f"SafariDesk: Text PARKS to browse by SMS {browse}. Your operator confirms dates, availability and current rates."
         return "BOOK", reply, None
-    return "HELP" if command_text == "HELP" else "OTHER", (
-        "SafariDesk: text BOOK for safari options. Text STOP to stop service SMS or START to re-enable."
-    ), None
+    parks_page = re.fullmatch(r"(?:PARKS|PARK)\s+(\d{1,2})", command_text)
+    if command_text in {"PARKS", "PARK", "OPTIONS", "DESTINATIONS", "SAFARI"} or parks_page:
+        requested_page = int(parks_page.group(1)) if parks_page else 1
+        if requested_page < 1:
+            return "PARKS", "SafariDesk: Text PARKS to browse destinations.", None
+        page = requested_page - 1
+        page_size = 4
+        start = page * page_size
+        items = catalog[start:start + page_size]
+        if not items:
+            return "PARKS", "SafariDesk: no more destinations on that page. Text PARKS to start again.", None
+        labels = [f"{start + offset + 1}. {_sms_destination_label(item['name'])}" for offset, item in enumerate(items)]
+        reply = "SafariDesk parks: " + "; ".join(labels) + ". Reply with a number for details."
+        if start + len(items) < len(catalog):
+            reply += f" Text PARKS {page + 2} for more."
+        return "PARKS", reply, None
+
+    destination = _sms_destination_detail(command_text, catalog)
+    if destination is not None:
+        reply = (
+            f"{destination['name']}: {destination['highlight']} "
+            "Ask your operator about dates, availability and current rates."
+        )
+        return "DESTINATION", reply, None
+
+    return "OTHER", "SafariDesk: Text PARKS for destinations, BOOK for booking help, or HELP for commands. Text STOP to opt out.", None
 
 
 def _persist_inbound(
@@ -604,7 +678,8 @@ def build_telecom_router(
                 return JSONResponse({"error": "Malformed SMS callback.", "code": "INVALID_CALLBACK"}, status_code=400)
             if not _allowed_phone(phone, settings):
                 return JSONResponse({"error": "Sender not allowed.", "code": "PHONE_NOT_ALLOWED"}, status_code=403)
-            command, reply, preference = _classify_sms(message, public_app_url)
+            destinations = await run_in_threadpool(_load_destination_catalog, pool)
+            command, reply, preference = _classify_sms(message, public_app_url, destinations)
             inserted, opted_out = await run_in_threadpool(
                 _persist_inbound,
                 pool,
@@ -613,9 +688,19 @@ def build_telecom_router(
                 _phone_hash(phone, settings),
                 command,
             )
-            if inserted and (preference is not None or not opted_out):
+            should_reply = preference is not None or command == "HELP" or not opted_out
+            if inserted and should_reply:
                 try:
-                    await sms_sender(pool, settings, phone, reply, event_kind=command)
+                    outcome = await sms_sender(pool, settings, phone, reply, event_kind=command)
+                    if not isinstance(outcome, Mapping) or not outcome.get("accepted"):
+                        status_code = outcome.get("providerErrorCode") if isinstance(outcome, Mapping) else None
+                        reason = outcome.get("reason") if isinstance(outcome, Mapping) else None
+                        logger.warning(
+                            "Africa's Talking inbound SMS reply was not accepted (command=%s, code=%s, reason=%s)",
+                            command,
+                            status_code,
+                            reason,
+                        )
                 except Exception:
                     logger.exception("Africa's Talking inbound SMS reply could not be sent")
             return PlainTextResponse("OK", status_code=200)

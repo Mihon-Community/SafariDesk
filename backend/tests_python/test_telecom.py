@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from safaridesk.security_logging import WebhookQueryRedactionFilter
-from safaridesk.telecom import build_telecom_router, send_sms, normalize_kenyan_phone
+from safaridesk.telecom import build_telecom_router, send_sms, normalize_kenyan_phone, _phone_hash
 
 
 PHONE = "+254712345678"
@@ -235,6 +235,43 @@ def test_sms_allowlist_blocks_before_provider_call():
     assert calls == []
 
 
+def test_sms_help_can_be_requested_after_opt_out_but_destination_replies_stay_off():
+    pool = FakePool()
+    config = settings()
+    pool.state["optouts"][_phone_hash(PHONE, config)] = datetime.now(timezone.utc)
+    calls = []
+
+    def provider(request):
+        calls.append(request)
+        return httpx.Response(201, json={
+            "SMSMessageData": {
+                "Recipients": [{"messageId": "AT-help-after-stop", "status": "Sent", "statusCode": 101}]
+            }
+        })
+
+    help_result = run(send_sms(
+        pool,
+        config,
+        PHONE,
+        "Text PARKS for options.",
+        event_kind="HELP",
+        transport=httpx.MockTransport(provider),
+    ))
+    assert help_result["accepted"] is True
+    assert len(calls) == 1
+
+    parks_result = run(send_sms(
+        pool,
+        config,
+        PHONE,
+        "SafariDesk parks: 1. Maasai Mara.",
+        event_kind="PARKS",
+        transport=httpx.MockTransport(provider),
+    ))
+    assert parks_result == {"accepted": False, "reason": "opted_out", "recipients": []}
+    assert len(calls) == 1
+
+
 def test_ussd_returns_persistent_con_and_end_plain_text():
     pool = FakePool()
     app = make_app(pool)
@@ -367,13 +404,94 @@ def test_inbound_sms_is_idempotent_and_obeys_stop_start():
 
     help_message = {"id": "provider-2", "from": PHONE, "text": "HELP"}
     assert client.post("/webhook/incoming", params={"token": TOKEN}, data=help_message).status_code == 200
-    assert len(sent) == 1
-
-    start = {"id": "provider-3", "from": PHONE, "text": "START"}
-    assert client.post("/webhook/incoming", params={"token": TOKEN}, data=start).status_code == 200
     assert len(sent) == 2
-    assert sent[1][2] == "START"
+    assert sent[1][2] == "HELP"
+    assert "PARKS" in sent[1][1]
+
+    # A user can still ask for help after opting out; service updates stay off.
+    parks_message = {"id": "provider-3", "from": PHONE, "text": "PARKS"}
+    assert client.post("/webhook/incoming", params={"token": TOKEN}, data=parks_message).status_code == 200
+    assert len(sent) == 2
+
+    start = {"id": "provider-4", "from": PHONE, "text": "START"}
+    assert client.post("/webhook/incoming", params={"token": TOKEN}, data=start).status_code == 200
+    assert len(sent) == 3
+    assert sent[2][2] == "START"
     assert pool.state["optouts"] == {}
+
+
+def test_inbound_sms_browses_postgres_destinations_and_sends_details():
+    pool = FakePool()
+    pool.state["parks"] = [
+        {"name": "Maasai Mara"},
+        {"name": "Amboseli"},
+        {"name": "Tsavo East"},
+        {"name": "Nairobi National Park"},
+        {"name": "Ol Pejeta Conservancy"},
+        {"name": "Samburu National Reserve"},
+        {"name": "Lewa Wildlife Conservancy"},
+        {"name": "Meru National Park"},
+        {"name": "Mount Kenya National Park"},
+        {"name": "Lake Nakuru National Park"},
+        {"name": "Kakamega Forest"},
+        {"name": "Aberdare National Park"},
+    ]
+    sent = []
+
+    async def sender(_pool, _settings, phone, message, event_kind="notification"):
+        sent.append((phone, message, event_kind))
+        return {"accepted": True}
+
+    client = TestClient(make_app(pool, sms_sender=sender))
+
+    def send(provider_id, text):
+        return client.post(
+            "/webhook/incoming",
+            params={"token": TOKEN},
+            data={"id": provider_id, "from": PHONE, "text": text},
+        )
+
+    assert send("sms-help", "help").status_code == 200
+    assert "PARKS" in sent[-1][1] and "BOOK" in sent[-1][1]
+
+    assert send("sms-book", "book").status_code == 200
+    assert "PARKS" in sent[-1][1] and "/parks" in sent[-1][1]
+    assert "availability" in sent[-1][1]
+
+    assert send("sms-parks", "parks").status_code == 200
+    assert "1. Maasai Mara" in sent[-1][1]
+    assert "2. Amboseli" in sent[-1][1]
+    assert "3. Tsavo East" in sent[-1][1]
+    assert "4. Nairobi" in sent[-1][1]
+    assert "PARKS 2" in sent[-1][1]
+    assert len(sent[-1][1]) <= 160
+
+    assert send("sms-parks-page-2", "PARKS 2").status_code == 200
+    assert "5. Ol Pejeta" in sent[-1][1]
+    assert "6. Samburu" in sent[-1][1]
+
+    assert send("sms-parks-page-zero", "PARKS 0").status_code == 200
+    assert "Text PARKS to browse destinations" in sent[-1][1]
+    assert send("sms-parks-page-three", "PARKS 3").status_code == 200
+    assert "9. Mount Kenya" in sent[-1][1]
+    assert "12. Aberdare" in sent[-1][1]
+    assert len(sent[-1][1]) <= 160
+
+    assert send("sms-parks-page-four", "PARKS 4").status_code == 200
+    assert "no more destinations" in sent[-1][1]
+
+    assert send("sms-mara", "mara").status_code == 200
+    assert sent[-1][2] == "DESTINATION"
+    assert sent[-1][1].startswith("Maasai Mara Reserve: Great Migration and Big Five")
+
+    assert send("sms-number", "2").status_code == 200
+    assert sent[-1][1].startswith("Amboseli National Park: Elephant herds and views")
+
+    assert send("sms-number-page-2", "6").status_code == 200
+    assert sent[-1][1].startswith("Samburu National Reserve: Ask SafariDesk")
+
+    assert send("sms-number-page-3", "12").status_code == 200
+    assert sent[-1][1].startswith("Aberdare National Park: Ask SafariDesk")
 
 
 def test_delivery_report_accepts_query_token_and_maps_delivered_to_success():
