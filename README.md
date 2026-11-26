@@ -1,61 +1,34 @@
 # SafariDesk
 
-Safari & tour operations for Kenyan operators: quoting, M-Pesa payments, driver
-dispatch and safety alerts — one dashboard.
+Safari and tour operations software for Kenyan operators: bookings, payments,
+driver dispatch, guest safety, and Africa's Talking SMS/USSD.
 
-**Stack:** Next.js (App Router) + React + TypeScript + Tailwind v4 + shadcn/ui +
-TanStack Query/Zustand + Recharts · FastAPI concierge/AI service · Express API with
-cookie auth + RBAC (Phase 7–8) · MSW mocks until the domain backend runs.
+## Stack
 
-## Quick start
+- Frontend: Next.js, React, TypeScript, Tailwind CSS.
+- API: Python FastAPI with Socket.IO.
+- Database: PostgreSQL; no mock data or in-memory fallback.
+- Messaging: Africa's Talking Sandbox or production API.
 
-```bash
-# Frontend (mocks on by default)
-cd frontend && npm install && npm run dev        # http://localhost:3002
+## Start locally
 
-# Backend API (auth/RBAC; domain routes are mocked)
-cd backend && npm install
-ADMIN_EMAIL=admin@safaridesk.app ADMIN_PASSWORD=password123 npm run dev   # :3001
-npm test                                          # vitest + supertest
+Follow [`docs/BACKEND_GUIDE.md`](docs/BACKEND_GUIDE.md) for PostgreSQL, Python,
+frontend, Africa's Talking callbacks, ngrok, MCP, and test instructions.
 
-# Same backend on Postgres
-DATABASE_URL=postgres://… npm run migrate
-npm run seed:demo                                 # one demo user per role
-TEST_DATABASE_URL=postgres://… npm test           # also runs tests/pg.test.ts
+Typical local URLs:
 
-# AI service (Python)
-cd ai && python -m uvicorn app:app --reload       # see ai/README
-```
+- Frontend: `http://localhost:3002`
+- Python API: `http://127.0.0.1:3001`
+- PostgreSQL: `127.0.0.1:5432`
+- Health check: `http://127.0.0.1:3001/health`
 
-Point the frontend at the real API: `NEXT_PUBLIC_USE_MOCKS=false`
-`BACKEND_URL=http://127.0.0.1:3001` (same-origin `/api/*` rewrite).
+## Checks
 
-### Demo credentials (dev only)
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m pytest tests_python -q
 
-Password `password123` for all of these; staff sign-ups stay pending until an
-admin approves them on **Users → Pending requests**.
-
-| Role | Email | Lands on |
-|---|---|---|
-| admin / super_admin | `admin@safaridesk.app` (super_admin via invite) | `/dashboard` |
-| operations / dispatcher | `ops@safaridesk.app` | `/dispatch` |
-| finance | `finance@safaridesk.app` | `/payments` |
-| agent | `agent@safaridesk.app` | `/bookings` |
-| driver | `driver@safaridesk.app` | `/driver` |
-| customer | `amina@example.com` | `/my-trips` |
-
-## Layout
-
-```
-frontend/   Next.js app: marketing site, auth pages, operator dashboard (RBAC)
-backend/    Express auth/RBAC API + migrations + tests
-ai/         Python (FastAPI) concierge + booking parser services
-docs/       FRONTEND_GUIDE.md · BACKEND_GUIDE.md · DATABASE_GUIDE.md + source PDFs
-```
-
-## Tests & checks
-
-```bash
-cd frontend && npm run lint      # palette contrast contracts + tsc
-cd backend && npm test            # auth + rbac + permissions sync
+cd ..\frontend
+npm.cmd run typecheck
+npm.cmd run build
 ```

@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "safaridesk-postgres": {
+      "type": "stdio",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\backend\\scripts\\start-postgres-mcp.ps1"
+      ]
+    }
+  }
+}

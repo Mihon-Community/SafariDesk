@@ -1,0 +1,9 @@
+[project]
+name = "safaridesk-api"
+version = "2.0.0"
+description = "SafariDesk Python API backed by PostgreSQL"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests_python"]
+addopts = "-q"

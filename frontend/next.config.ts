@@ -1,36 +1,31 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
-/**
- * When NEXT_PUBLIC_USE_MOCKS=false and BACKEND_URL is set, /api/* is proxied to
- * the Express server so cookies stay same-origin. In mock mode the browser's
- * service worker answers those paths directly.
- */
+/** Keep API calls same-origin for browser cookies and proxy them to FastAPI. */
 const BACKEND_URL = process.env.BACKEND_URL ?? "";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  async rewrites() {
-    if (!BACKEND_URL) return [];
-    return [{ source: "/api/:path*", destination: `${BACKEND_URL}/api/:path*` }];
-  },
-  // Keep Turbopack's workspace root at the repo so lockfiles above frontend/ are ignored cleanly.
-  turbopack: {
-    root: path.resolve(import.meta.dirname, ".."),
-    // Same msw fix for Turbopack itself (it ignores the webpack block).
-    resolveAlias: {
-      "msw/browser": "./node_modules/msw/lib/browser/index.js",
+  // The public ngrok URL serves the dev UI for invite and callback checks.
+  // Limit this wildcard to the local development server; production has none.
+  allowedDevOrigins: process.env.NODE_ENV === "development" ? ["*.ngrok-free.dev"] : [],
+  // Callback URLs carry the shared webhook token in the query string. Avoid
+  // writing those request targets into the Next.js dev server logs.
+  logging: {
+    incomingRequests: {
+      ignore: [/\/(?:api\/webhooks\/africastalking|webhook\/incoming|ussd)(?:\/|\?|$)/],
     },
   },
-  webpack: (config) => {
-    // msw's exports map sets "node": null for ./browser, which Turbopack refuses to
-    // resolve. Point the subpath straight at its browser entry instead.
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "msw/browser": path.resolve(import.meta.dirname, "node_modules/msw/lib/browser/index.js"),
-    };
-    return config;
+  async rewrites() {
+    if (!BACKEND_URL) return [];
+    return [
+      { source: "/api/:path*", destination: `${BACKEND_URL}/api/:path*` },
+      { source: "/ussd", destination: `${BACKEND_URL}/ussd` },
+      { source: "/webhook/incoming", destination: `${BACKEND_URL}/webhook/incoming` },
+    ];
   },
+  // Keep Turbopack's workspace root at the repo so lockfiles above frontend/ are ignored cleanly.
+  turbopack: { root: path.resolve(import.meta.dirname, "..") },
   // Images are local files in public/ for now; remote patterns can be added in Phase 3.
   images: { formats: ["image/avif", "image/webp"] },
 };

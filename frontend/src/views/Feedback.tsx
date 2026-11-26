@@ -59,7 +59,7 @@ export default function Feedback() {
 
   const loading = feedbackQuery.isLoading || summaryQuery.isLoading || bookingsQuery.isLoading;
 
-  /** AI sentiment per comment (Python service; MSW stand-in in dev). */
+  /** Sentiment estimate per comment from the Python API. */
   const sentiment = useSentimentScores(
     feedbackQuery.data?.map((f) => ({ id: f.id, text: f.comment ?? "" })),
   );

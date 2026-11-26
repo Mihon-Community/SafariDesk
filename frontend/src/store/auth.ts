@@ -25,8 +25,7 @@ interface AuthState {
   /** Server session (httpOnly cookie). Present only when signed in. */
   user: SessionUser | null;
   /**
-   * Client-side bearer token. Optional and never persisted to localStorage —
-   * the real backend uses cookies; MSW dev mocks may set this instead.
+   * Optional client-side bearer token. The local Python API uses httpOnly cookies.
    */
   token: string | null;
   /** False until the stored session has been checked; keeps SSR and first render identical. */
@@ -41,7 +40,19 @@ async function fetchCurrentUser(): Promise<SessionUser | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
-    const res = await fetch("/api/auth/me", { credentials: "include", signal: controller.signal });
+    const options: RequestInit = { credentials: "include", signal: controller.signal, cache: "no-store" };
+    let res = await fetch("/api/auth/me", options);
+    if (res.status === 401) {
+      // A page load may happen after the short access cookie expires, before
+      // any normal API call has a chance to perform its silent refresh.
+      const refreshed = await fetch("/api/auth/refresh", {
+        method: "POST",
+        credentials: "include",
+        signal: controller.signal,
+      });
+      if (!refreshed.ok) return null;
+      res = await fetch("/api/auth/me", options);
+    }
     if (!res.ok) return null;
     const body = (await res.json()) as { user?: SessionUser };
     return body.user ?? null;

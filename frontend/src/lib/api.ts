@@ -45,8 +45,8 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 
 /**
  * Fetch wrapper for the JSON API. Cookies carry the session (httpOnly on the
- * server); an Authorization header is still sent when a client-side token is
- * present so mock/self-hosted gateways keep working. A 401 triggers one silent
+ * server); an Authorization header is also sent when a client-side token is
+ * present. A 401 triggers one silent
  * refresh before the request is retried exactly once.
  */
 export async function api<T>(path: string, init: RequestOptions = {}): Promise<T> {

@@ -41,31 +41,14 @@ export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessCookie = request.cookies.get("sd_access")?.value;
   const role = request.cookies.get("sd_role")?.value;
-  const mockMode = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_USE_MOCKS === "true";
   const isAuthPage = AUTH_PAGES.some((p) => matchesPrefix(p, pathname));
-
-  // A real backend session uses a JWT, while MSW sessions use a numeric mock
-  // user id. When switching to mocks, expire old server cookies so the client
-  // auth gate and the mock /me handler agree that the user is signed out.
-  if (mockMode && accessCookie && !/^\d+$/.test(accessCookie)) {
-    const next = pathname + request.nextUrl.search;
-    const response = isAuthPage
-      ? NextResponse.next()
-      : NextResponse.redirect(new URL(`/sign-in?next=${encodeURIComponent(next)}`, request.url));
-    response.cookies.set("sd_access", "", { path: "/", maxAge: 0 });
-    response.cookies.set("sd_refresh", "", { path: "/api/auth", maxAge: 0 });
-    response.cookies.set("sd_role", "", { path: "/", maxAge: 0 });
-    return response;
-  }
 
   const hasSession = Boolean(accessCookie);
 
-  if (isAuthPage) {
-    if (!hasSession) return NextResponse.next();
-    const next = request.nextUrl.searchParams.get("next");
-    const target = next && next.startsWith("/") ? next : roleHome(role);
-    return NextResponse.redirect(new URL(target, request.url));
-  }
+  // Cookie presence alone does not prove the backend session is still valid.
+  // Let the sign-in page check `/api/auth/me`; otherwise an expired access
+  // cookie can bounce a signed-out user between /dashboard and /sign-in forever.
+  if (isAuthPage) return NextResponse.next();
 
   const needsAuth =
     pathname === "/settings" ||
@@ -89,6 +72,6 @@ export default function proxy(request: NextRequest) {
 export const config = {
   // Skip static assets, images and API routes.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|images/|mockServiceWorker.js).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|images/).*)",
   ],
 };

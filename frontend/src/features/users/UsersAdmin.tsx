@@ -99,12 +99,50 @@ export function UsersAdmin({ users }: { users: AdminUser[] }) {
   async function sendInvite(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const res = await api<{ ok: boolean; devToken?: string }>("/api/auth/invite", {
+      const res = await api<{
+        ok: boolean;
+        sms?: {
+          status: "submitted" | "not_sent" | "unknown";
+          reason?: string;
+          providerStatus?: string;
+          providerStatusCode?: number;
+          providerHttpStatus?: number;
+          providerErrorCode?: string;
+          mode?: "sandbox" | "live" | "unconfigured";
+        };
+      }>("/api/auth/invite", {
         method: "POST",
         body: { email: inviteEmail, role: inviteRole, ...(invitePhone ? { phone: invitePhone } : {}) },
       });
-      toast.success("Invite sent");
-      if (res.devToken) toast.info(`Dev invite token: ${res.devToken}`);
+      if (res.sms?.status === "submitted") {
+        toast.success(
+          res.sms.mode === "sandbox"
+            ? "Invite created; SMS submitted to the Africa's Talking simulator."
+            : "Invite created; SMS submitted to Africa's Talking.",
+        );
+      } else if (res.sms?.status === "not_sent") {
+        const reasons: Record<string, string> = {
+          no_phone: "no phone number was provided",
+          no_public_app_url: "PUBLIC_APP_URL is not configured",
+          not_configured: "Africa's Talking credentials are not configured",
+          invalid_phone: "the phone number is invalid",
+          not_allowed: "the recipient is not in AT_ALLOWED_PHONES",
+          opted_out: "the recipient has opted out of SMS",
+          provider_error: "Africa's Talking did not accept the SMS",
+          delivery_not_configured: "SMS delivery is not configured",
+        };
+        let detail = reasons[res.sms.reason ?? ""] ?? "delivery failed";
+        if (res.sms.reason === "provider_error" && res.sms.providerStatusCode !== undefined) {
+          detail = `Africa's Talking rejected the SMS (code ${res.sms.providerStatusCode}${res.sms.providerStatus ? `, ${res.sms.providerStatus}` : ""})`;
+        } else if (res.sms.reason === "provider_error" && res.sms.providerHttpStatus !== undefined) {
+          detail = `Africa's Talking returned HTTP ${res.sms.providerHttpStatus}`;
+        } else if (res.sms.reason === "provider_error" && res.sms.providerErrorCode) {
+          detail = `Africa's Talking request failed (${res.sms.providerErrorCode})`;
+        }
+        toast.info(`Invite created, but no SMS was sent: ${detail}.`);
+      } else {
+        toast.info("Invite created, but SMS delivery could not be confirmed. Check the backend log before reporting it as sent.");
+      }
       setInviteEmail("");
       setInvitePhone("");
       setInviteOpen(false);

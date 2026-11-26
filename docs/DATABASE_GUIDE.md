@@ -1,89 +1,42 @@
-# SafariDesk — Database Guide
+# SafariDesk PostgreSQL guide
 
-Postgres. Migrations live in `backend/migrations/` and are applied in filename order.
-The PDF guide remains the source for the **domain** schema; only the auth/RBAC schema
-exists in migrations today.
+The Python API and PostgreSQL MCP server use the same local PostgreSQL 18
+database (`safaridesk`). There is no memory store, mock database, or demo seed.
+The application applies migrations from `backend/migrations_python/` at startup.
 
-## Current migrations
+## Local database
 
-| File | Status | Contents |
-|---|---|---|
-| `001_init.sql` | placeholder (empty) | reserved for the domain schema |
-| `002_seed.sql` | placeholder (empty) | reserved for reference/seed data |
-| `003_demo.sql` | placeholder (empty) | reserved for demo bookings/drivers |
-| `004_auth.sql` | live | `users`, `refresh_tokens`, `password_resets`, `invites`, `audit_log` |
-| `005_rbac.sql` | live | role rename `staff → operations`, role CHECK constraints |
-| `006_staff_requests.sql` | live | `users.requested_role`, `status='pending'` constraint, partial index |
+See [`BACKEND_GUIDE.md`](BACKEND_GUIDE.md) for the PowerShell setup. The
+`backend/scripts/prepare-postgres.ps1` script starts Docker Compose, creates
+separate application and read-only MCP roles, and fills missing DB credentials
+in the ignored `backend/.env`. PostgreSQL binds to `127.0.0.1:5432`; its data is
+kept in the Docker volume `safaridesk_pgdata_v18`.
 
-Apply with the repo runner (records applied files in `schema_migrations`, so
-re-runs are no-ops):
+The backend reads `DATABASE_URL` as the application role. The MCP launcher reads
+`MCP_DATABASE_URL` as `safaridesk_mcp`, whose grants allow inspection and SELECT
+queries without data or schema mutation.
 
-```bash
-DATABASE_URL=postgres://… npm run migrate      # backend/
+## Tables
+
+`001_core.sql` creates auth/session/audit tables: `users`, `refresh_tokens`,
+`password_resets`, `invites`, `audit_log`, and migration bookkeeping.
+`002_business.sql` creates `business_records`, a JSONB-backed table used by the
+API for booking, fleet, rates, payments, alerts, analytics and other resource
+collections. `003_africastalking.sql` creates `sms_messages`, `sms_inbound`,
+`sms_opt_outs`, and `ussd_sessions` for provider status, deduplication, opt-out,
+and multi-turn USSD state.
+
+Only the configured first administrator is created automatically. No customer,
+driver, booking, or demo staff records are seeded; create staff through the
+admin UI or use normal signup/invite workflows.
+
+## Check the database
+
+```powershell
+cd C:\Users\Administrator\Desktop\SafariDesk\backend
+docker compose ps
+docker exec safaridesk-postgres pg_isready -U postgres -d safaridesk
 ```
 
-Or by hand:
-
-```bash
-for f in backend/migrations/*.sql; do psql "$DATABASE_URL" -f "$f"; done
-```
-
-Rollback = run each `DROP TABLE IF EXISTS …` in reverse order (Postgres 15+ can also
-wrap each file in a transaction; these scripts are written idempotently with
-`IF NOT EXISTS`/`IF EXISTS`). Migrations that insert data are re-appliable because
-they use `ON CONFLICT`/guarded updates.
-
-## Auth / RBAC schema (live)
-
-- **users** — `id uuid pk`, `name`, `email citext unique`, `password_hash` (bcrypt),
-  `role` ∈ {super_admin, admin, operations, dispatcher, finance, agent, driver, customer},
-  `status` ∈ {active, invited, pending, disabled}, `requested_role` (staff role asked
-  for at self-signup), `failed_attempts`, `locked_until`, `last_login_at`, `created_at`.
-- **refresh_tokens** — sha256 of the raw token only (`token_hash`), `family_id` for
-  rotation/reuse detection, `user_agent`, `ip inet`, `expires_at`, `revoked_at`,
-  `replaced_at`. Index on `family_id`; reuse queries include revoked rows.
-- **password_resets** — single-use, `expires_at` (30 min); token stored hashed.
-- **invites** — staff onboarding (`role`, `status`, token hash, expiry).
-- **audit_log** — actor, action, target, metadata JSONB, ip, created_at. Written by
-  auth events, user admin actions and RBAC changes.
-
-## Planned domain schema (not yet migrated)
-
-From `SafariDesk_SRS.pdf`: `parks`, `attractions`, `drivers`, `vehicles`, `bookings`
-(+ items/itinerary), `payments` (M-Pesa), `rates`, `alerts`, `feedback`, `customers`,
-`documents`, `reports`. These land in `001_init.sql`/`003_demo.sql` when the domain
-services are built; until then the API runs on MSW mocks or the auth memory store.
-
-## ERD (auth slice)
-
-```mermaid
-erDiagram
-  users ||--o{ refresh_tokens : "rotates"
-  users ||--o{ password_resets : "requests"
-  users ||--o{ invites : "creates"
-  users ||--o{ audit_log : "triggers"
-  refresh_tokens }o--|| users : "family_id -> users.id"
-```
-
-Domain entities join on `bookings.customer_id -> users.id` (customer role) and
-`bookings.driver_id -> drivers.user_id`.
-
-## Seed users
-
-Dev credentials: the memory store bootstraps an admin at startup; Postgres uses
-`npm run seed:demo` (one user per role, idempotent upsert, refuses in production).
-
-| Role | Email | Password | Home |
-|---|---|---|---|
-| admin | `admin@safaridesk.app` | `password123` | /dashboard |
-| super_admin | via invite only | — | /dashboard |
-| operations | `ops@safaridesk.app` | `password123` | /dispatch |
-| dispatcher | via invite / seed | `password123` | /dispatch |
-| finance | `finance@safaridesk.app` | `password123` | /payments |
-| agent | `agent@safaridesk.app` | `password123` | /bookings |
-| driver | `driver@safaridesk.app` | `password123` | /driver |
-| customer | `amina@example.com` | `password123` | /my-trips |
-
-Staff roles requested through `/sign-up` stay `pending` until an admin approves
-them on `/users`. Rotate `DEMO_PASSWORD`/`ADMIN_PASSWORD` in any real environment;
-never commit credentials.
+The API health endpoint verifies an actual PostgreSQL connection:
+`http://127.0.0.1:3001/health`.

@@ -14,8 +14,7 @@ export interface ForecastPoint {
 }
 
 /**
- * Demand forecast from the Python AI service (`ai/services/forecast.py`).
- * Falls back to the MSW stand-in when the sidecar is not running.
+ * Demand forecast derived by the Python API from the supplied monthly totals.
  */
 export function useForecast(monthly: MonthlyDemand[] | undefined) {
   return useQuery({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,7 +11,7 @@ import { Eye, EyeOff, Loader2, ShieldCheck, UserRound, UsersRound, CarFront } fr
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/store/auth";
 import type { SessionUser } from "@/store/auth";
-import { DEMO_ACCOUNTS, ROLE_HOME, SIGN_IN_GROUPS } from "@/lib/roles";
+import { ROLE_HOME, SIGN_IN_GROUPS } from "@/lib/roles";
 import type { SignInGroup } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,13 +33,22 @@ const GROUP_ROLES: Record<SignInGroup, string[]> = {
 
 export default function Login() {
   const setSession = useAuth((s) => s.setSession);
+  const user = useAuth((s) => s.user);
+  const hydrated = useAuth((s) => s.hydrated);
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
   const [group, setGroup] = useState<SignInGroup>("traveller");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [demoSigningIn, setDemoSigningIn] = useState<(typeof DEMO_ACCOUNTS)[number]["role"] | null>(null);
+
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    const target = next && next.startsWith("/") && !next.startsWith("/sign-")
+      ? next
+      : ROLE_HOME[user.role];
+    router.replace(target);
+  }, [hydrated, next, router, user]);
 
   const {
     register,
@@ -80,24 +89,6 @@ export default function Login() {
 
   function onSubmit(values: LoginValues) {
     return signIn(values, group);
-  }
-
-  async function signInAsDemo(account: (typeof DEMO_ACCOUNTS)[number]) {
-    const selectedGroup: SignInGroup =
-      account.role === "customer"
-        ? "traveller"
-        : account.role === "driver"
-          ? "driver"
-          : account.role === "admin" || account.role === "super_admin"
-            ? "admin"
-            : "staff";
-    setGroup(selectedGroup);
-    setDemoSigningIn(account.role);
-    try {
-      await signIn(account, selectedGroup);
-    } finally {
-      setDemoSigningIn(null);
-    }
   }
 
   const hint = SIGN_IN_GROUPS.find((g) => g.id === group)?.hint;
@@ -180,31 +171,11 @@ export default function Login() {
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting || demoSigningIn !== null}>
-          {(isSubmitting || demoSigningIn !== null) && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isSubmitting || demoSigningIn !== null ? "Signing in…" : "Sign in"}
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSubmitting ? "Signing in…" : "Sign in"}
         </Button>
       </form>
-
-      {process.env.NODE_ENV !== "production" && (
-        <div className="space-y-2 border-t pt-3">
-          <p className="text-xs font-medium text-muted-foreground">Demo accounts (dev only — click to sign in)</p>
-          <div className="flex flex-wrap gap-1.5">
-            {DEMO_ACCOUNTS.map((account) => (
-              <button
-                key={account.email}
-                type="button"
-                onClick={() => void signInAsDemo(account)}
-                disabled={isSubmitting || demoSigningIn !== null}
-                className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:border-primary hover:text-primary disabled:cursor-wait disabled:opacity-60"
-              >
-                {demoSigningIn === account.role && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />}
-                {account.role}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

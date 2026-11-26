@@ -35,13 +35,3 @@ export const SIGNUP_ROLES: Array<{
   { role: "operations", title: "Operations / dispatch", blurb: "Allocate drivers and vehicles; needs approval.", needsApproval: true },
   { role: "finance", title: "Finance", blurb: "Payments, invoices and revenue; needs approval.", needsApproval: true },
 ];
-
-/** Demo credentials used by the dev-only quick sign-in buttons. */
-export const DEMO_ACCOUNTS: Array<{ role: Role; email: string; password: string }> = [
-  { role: "customer", email: "amina@example.com", password: "password123" },
-  { role: "driver", email: "driver@safaridesk.app", password: "password123" },
-  { role: "agent", email: "agent@safaridesk.app", password: "password123" },
-  { role: "operations", email: "ops@safaridesk.app", password: "password123" },
-  { role: "finance", email: "finance@safaridesk.app", password: "password123" },
-  { role: "admin", email: "demo-admin@safaridesk.app", password: "password123" },
-];

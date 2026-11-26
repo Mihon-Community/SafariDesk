@@ -4,6 +4,13 @@ dist/
 *.log
 .DS_Store
 web/dist/
+backend/.venv/
+backend/.pytest_cache/
+backend/.env
+backend/.postgres.env
+frontend/.env
+ai/.venv/
+.playwright-mcp/
 # Next.js
 .next/
 *.tsbuildinfo

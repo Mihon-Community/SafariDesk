@@ -39,7 +39,7 @@ export default function Payments() {
 
       {query.isLoading && <Skeleton className="h-72 w-full" />}
 
-      {/* AI checks — rules first, from the Python service (MSW stand-in in dev) */}
+      {/* Rule-based payment checks from the Python API. */}
       <Card>
         <CardContent className="p-4">
           <div className="mb-2 flex flex-wrap items-center gap-2">

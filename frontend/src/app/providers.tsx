@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
 import { useAuth } from "@/store/auth";
-import { startMockWorker } from "@/mocks/start-worker";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,29 +19,34 @@ const queryClient = new QueryClient({
   },
 });
 
-/**
- * Client bootstrap. In mock development mode, wait for MSW before rendering
- * interactive pages so sign-in and auth hydration cannot race the worker.
- */
-export function Providers({ children }: { children: React.ReactNode }) {
-  const mocksOn = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
-  const mockMode = mocksOn && process.env.NODE_ENV === "development";
-  const [mockWorkerReady, setMockWorkerReady] = useState(!mockMode);
+const PUBLIC_AUTH_FLOWS = new Set([
+  "/sign-in",
+  "/sign-up",
+  "/forgot-password",
+  "/reset-password",
+  "/accept-invite",
+]);
 
-  // Start MSW before checking auth. Otherwise `/api/auth/me` can race the
-  // service worker and incorrectly mark a valid mock session as signed out.
+export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     async function bootstrap() {
-      if (mockMode) {
-        try {
-          await startMockWorker();
-        } catch (error) {
-          console.error("[msw] mock mode could not start", error);
+      // Remove a registration left behind by an earlier MSW development build.
+      try {
+        if ("serviceWorker" in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(
+            registrations
+              .filter((registration) => registration.active?.scriptURL.includes("mockServiceWorker.js"))
+              .map((registration) => registration.unregister()),
+          );
         }
+      } catch (error) {
+        console.warn("Could not remove the old mock service worker registration", error);
       }
-      if (active) {
-        setMockWorkerReady(true);
+      // A signed-out visitor on an auth form has no session to hydrate. Avoid
+      // expected 401 `/me` and `/refresh` requests cluttering browser errors.
+      if (active && !PUBLIC_AUTH_FLOWS.has(window.location.pathname)) {
         await useAuth.getState().hydrate();
       }
     }
@@ -50,17 +54,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [mockMode]);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {mockWorkerReady ? (
-        children
-      ) : (
-        <main className="grid min-h-dvh place-items-center bg-background px-4" role="status" aria-live="polite">
-          <p className="text-sm text-muted-foreground">Starting the local demo…</p>
-        </main>
-      )}
+      {children}
       <Toaster
         position="top-right"
         richColors

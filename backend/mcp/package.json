@@ -1,0 +1,9 @@
+{
+  "name": "safaridesk-postgres-mcp",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local PostgreSQL MCP server dependency for SafariDesk",
+  "devDependencies": {
+    "@microsoft/postgres-mcp": "0.3.1"
+  }
+}
